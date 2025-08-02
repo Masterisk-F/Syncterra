@@ -339,7 +339,7 @@ class AudioSyncData:
         #{プレイリスト名:Sheetインスタンス}
         rt = {}
         for ws in self.__workbook.worksheets:
-            if ws.cell(row=1, column=3).value == "プレイリスト名：" and ws.cell(row=1, column=4).value is not None and ws.cell(row=1, column=4).value != "" :
+            if ws.cell(row=1, column=3).value == "プレイリスト名：" and ws.cell(row=1, column=4).value is not None and ws.cell(row=2, column=4).value is not None :
                 rt[ws.cell(row=1, column=4).value] = AudioSyncData.__Sheet(ws, playlist=True)
         return rt
 
