@@ -43,6 +43,7 @@ class RsyncAudioSynchronizer:
         # プレイリストは後で個別送信するため、ここでは含めない
 
         fd, include_path = tempfile.mkstemp()
+        temp_dir = tempfile.mkdtemp() #リモートのディレクトリ内のm3u8などのファイルを削除するため使用
         try:
             with open(include_path, "w", encoding="utf-8") as f:
                 for path in include_set:
@@ -54,12 +55,12 @@ class RsyncAudioSynchronizer:
             first_audio = next(iter(self.audio_sync_data.sheet_Albums), None)
             if first_audio is None:
                 raise RuntimeError("No audio files found in sheet_Albums.")
-            src_dir = first_audio.filepath_from[:-len(first_audio.filepath_to_relative)]
+            src_dir = [d.rstrip("/") for d in self.audio_sync_data.include_dir]
             dest = f"{self.user+'@' if self.user else ''}{self.ip_addr}:~"
             rsync_cmd = [
                 "rsync", "-avz", "--delete-excluded", "--stats", f"--include-from={include_path}", "--exclude=*", "-e",
-                f"ssh -p {self.port}", src_dir + "/", dest
-            ]
+                f"ssh -p {self.port}",]
+            rsync_cmd += src_dir + [temp_dir+"/"] + [dest]
             if checksum:
                 rsync_cmd.insert(1, "-c")
             logger.info("Executing rsync: " + " ".join(rsync_cmd))
@@ -76,12 +77,12 @@ class RsyncAudioSynchronizer:
                 print("rsync failed:", e)
             # プレイリストm3uファイルを一時作成し、個別にrsyncで送信
             for name, playlist in self.audio_sync_data.sheets_playlist.items():
-                fd_m3u, m3u_path = tempfile.mkstemp(suffix=".m3u")
+                fd_m3u, m3u_path = tempfile.mkstemp(suffix=".m3u8")
                 try:
                     with open(m3u_path, "w", encoding="utf-8") as f:
                         f.write(playlist.make_m3u8(sep=self.remote_os_sep))
                         f.flush()
-                    remote_path = f"{name}.m3u"
+                    remote_path = f"{name}.m3u8"
                     rsync_m3u_cmd = [
                         "rsync", "-avz", "-e", f"ssh -p {self.port}", m3u_path, f"{dest}/{remote_path}"
                     ]
@@ -102,3 +103,4 @@ class RsyncAudioSynchronizer:
         finally:
             os.close(fd)
             os.remove(include_path)
+            os.rmdir(temp_dir)
