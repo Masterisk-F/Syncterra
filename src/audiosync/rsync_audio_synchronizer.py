@@ -16,6 +16,16 @@ class RsyncAudioSynchronizer:
         # 同期対象ファイルリストを一時ファイルに書き出す
         include_set = set()
         def add_all_dirs(path):
+            #文字列のエスケープ処理
+            escaped_path = ""
+            special_chars = "*?[]\\"
+            for c in path:
+                if c in special_chars:
+                    escaped_path += "\\" + c
+                else:
+                    escaped_path += c
+            path = escaped_path
+            
             parts = path.split(self.remote_os_sep)
             for i in range(1, len(parts)):
                 dir_path = self.remote_os_sep.join(parts[:i])
@@ -47,7 +57,7 @@ class RsyncAudioSynchronizer:
             src_dir = first_audio.filepath_from[:-len(first_audio.filepath_to_relative)]
             dest = f"{self.user+'@' if self.user else ''}{self.ip_addr}:~"
             rsync_cmd = [
-                "rsync", "-avz", "--delete", "--stats", f"--include-from={include_path}", "--exclude=*", "-e",
+                "rsync", "-avz", "--delete-excluded", "--stats", f"--include-from={include_path}", "--exclude=*", "-e",
                 f"ssh -p {self.port}", src_dir + "/", dest
             ]
             if checksum:
@@ -56,7 +66,8 @@ class RsyncAudioSynchronizer:
             try:
                 proc = subprocess.Popen(rsync_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 for line in proc.stdout:
-                    print(line, end="")
+                    if not line.rstrip().endswith("/"):
+                        print(line, end="")
                     logger.info(line.rstrip())
                 proc.wait()
                 if proc.returncode != 0:
