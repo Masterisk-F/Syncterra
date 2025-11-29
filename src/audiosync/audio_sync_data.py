@@ -124,6 +124,8 @@ class AudioSyncData:
 #            if chardet.detect(self.album_artist.encode("raw_unicode_escape"))["encoding"] == "SHIFT_JIS" :
 #                print(self.album_artist.encode("raw_unicode_escape").decode("shift_jis"))
             
+    CACHE_SHEET_NAME = "_Cache"
+
     def __init__(self, filepath):
         #AudioSyncData.xlsxを表す
         #
@@ -132,11 +134,25 @@ class AudioSyncData:
 
         self.__sheet_Albums = None
         self.__sheet_Not_in_Albums = None
+        self.__sheet_Cache = None
+
+        # 隠しシート（キャッシュ）の初期化
+        if self.CACHE_SHEET_NAME not in self.__workbook.sheetnames:
+            self.__workbook.create_sheet(self.CACHE_SHEET_NAME)
+            self.__workbook[self.CACHE_SHEET_NAME].sheet_state = "hidden"
+            
+            # ヘッダーをAlbumsシートからコピー
+            src_sheet = self.__workbook["Albums"]
+            dst_sheet = self.__workbook[self.CACHE_SHEET_NAME]
+            for i in range(1, src_sheet.max_column + 1):
+                dst_sheet.cell(row=1, column=i).value = src_sheet.cell(row=1, column=i).value
+        
+        self.__sheet_Cache = AudioSyncData.__Sheet(self.__workbook[self.CACHE_SHEET_NAME])
+
 
     def __del__(self):
         pass
     
-
 
 
     @property
@@ -391,57 +407,73 @@ class AudioSyncData:
         for audio in self.sheet_Not_in_Albums:
             not_in_albums_dict[audio.filepath_from] = [audio, False]
         
-        n = 0
-        if not update_all:
-            for audio_filepath, relative_path in self.get_audio_filepath_list():
-                if audio_filepath in not_in_albums_dict:
-                    logger.debug("album is None. exists in the sheet. filepath=" + audio_filepath)
-                    not_in_albums_dict[audio_filepath][1] = True
-                elif audio_filepath in albums_dict:
-                    logger.debug("in album. exists in the sheet. filepath=" + audio_filepath)
-                    albums_dict[audio_filepath][1] = True
-                else:
-                    audio = AudioSyncData.Audio(filepath=audio_filepath, relative_filepath=relative_path)
-                    if audio.album is None or audio.album == "":
-                        logger.debug("album is None. not exists in the sheet. filepath=" + audio_filepath)
-                        self.sheet_Not_in_Albums[audio.filepath_from] = audio
-                    else:
-                        logger.debug("in album. not exists in the sheet. filepath=" + audio_filepath)
-                        self.sheet_Albums[audio.filepath_from] = audio
-                    print("add audio file : " + audio.filename)
-        else:
-            for audio in self.get_audio_file_list():
-                n += 1
-                if audio.album is None or audio.album == "":
-                    if audio.filepath_from in not_in_albums_dict:
-                        #すでに一覧にある場合は、フラグ上書き
-                        logger.debug("album is None. exists in the sheet. filepath=" + audio.filepath_from)
-                        not_in_albums_dict[audio.filepath_from][1] = True
+        # キャッシュのデータを読み込み
+        cache_dict = {}
+        for audio in self.__sheet_Cache:
+            cache_dict[audio.filepath_from] = audio
 
-                        #sync,added_dateは維持
-                        audio.sync = self.sheet_Not_in_Albums[audio.filepath_from].sync
-                        audio.added_date = self.sheet_Not_in_Albums[audio.filepath_from].added_date
-                        self.sheet_Not_in_Albums[audio.filepath_from] = audio
-                    else:
-                        #一覧にない場合は、追加
-                        logger.debug("album is None. not exists in the sheet. filepath=" + audio.filepath_from)
-                        self.sheet_Not_in_Albums[audio.filepath_from] = audio
-                        print("add audio file : " & audio.filename)
-                else:
-                    if audio.filepath_from in albums_dict:
-                        #すでに一覧にある場合は、フラグ上書き
-                        logger.debug("in album. exists in the sheet. filepath=" + audio.filepath_from)
-                        albums_dict[audio.filepath_from][1] = True
-                        #TODO : 値の最新化も行う
-                        #sync,added_dateは維持
-                        audio.sync = self.sheet_Albums[audio.filepath_from].sync
-                        audio.added_date = self.sheet_Albums[audio.filepath_from].added_date
-                        self.sheet_Albums[audio.filepath_from] = audio
-                    else:
-                        #一覧にない場合は、追加
-                        logger.debug("in album. not exists in the sheet. filepath=" + audio.filepath_from)
-                        self.sheet_Albums[audio.filepath_from] = audio
-                        print("add audio file : " & audio.filename)
+        n = 0
+        for audio_filepath, relative_path in self.get_audio_filepath_list():
+            n += 1
+            
+            # ディスク上のファイルの更新日時を取得
+            current_mtime = datetime.datetime.fromtimestamp(os.stat(audio_filepath).st_mtime).isoformat(sep=" ",timespec="seconds")
+            
+            # キャッシュにあるか、更新日時が新しいか確認
+            use_cache = False
+            if not update_all and audio_filepath in cache_dict:
+                cached_audio = cache_dict[audio_filepath]
+                if cached_audio.update_date == current_mtime:
+                    use_cache = True
+            
+            if use_cache:
+                # キャッシュを使用
+                audio = cache_dict[audio_filepath]
+                logger.debug("Use cache for: " + audio.filename)
+            else:
+                # ディスクから読み込み
+                audio = AudioSyncData.Audio(filepath=audio_filepath, relative_filepath=relative_path)
+                logger.debug("Read from disk: " + audio.filename)
+                # キャッシュを更新
+                self.__sheet_Cache[audio.filepath_from] = audio
+
+            # 表示用シートの更新・修復ロジック
+            target_sheet = None
+            target_dict = None
+            
+            if audio.album is None or audio.album == "":
+                target_sheet = self.sheet_Not_in_Albums
+                target_dict = not_in_albums_dict
+            else:
+                target_sheet = self.sheet_Albums
+                target_dict = albums_dict
+
+            if audio.filepath_from in target_dict:
+                # すでに一覧にある場合
+                target_dict[audio.filepath_from][1] = True
+                existing_audio = target_dict[audio.filepath_from][0]
+                
+                # ユーザー編集可能な列（sync, added_dateなど）は維持する
+                # ただし、メタデータ（タイトル、アーティストなど）はキャッシュ（＝正しい値）で上書きして修復する
+                
+                # syncとadded_dateを既存のものからコピー
+                audio.sync = existing_audio.sync
+                audio.added_date = existing_audio.added_date
+                
+                # もし既存のデータと新しいデータ（キャッシュ由来）が異なれば、修復とみなして更新
+                # Audioクラスの比較メソッドがないので、主要な属性で比較するか、無条件で上書きするか。
+                # ここでは無条件で上書きすることで「修復」を実現する。
+                # ただし、無駄な書き込みを減らすために値の比較はしたほうが良いが、
+                # Audioオブジェクトの属性が多いので、一旦は常に上書きする（openpyxl側で値が同じなら変更されないことを期待、あるいは__setitem__でログが出る）
+                
+                target_sheet[audio.filepath_from] = audio
+            else:
+                # 一覧にない場合は追加
+                # added_dateを現在時刻に更新（表示シートから削除されていた場合の再追加にも対応）
+                audio.added_date = AudioSyncData.Audio.now.isoformat(sep=" ", timespec="seconds")
+                print("add audio file : " + audio.filename)
+                target_sheet[audio.filepath_from] = audio
+
         
         #ファイルが存在しない場合は、msgに"-"を記入
         #TODO : とりあえずの対応
