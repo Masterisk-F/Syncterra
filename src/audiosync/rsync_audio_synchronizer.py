@@ -12,7 +12,7 @@ class RsyncAudioSynchronizer:
         self.port = port
         self.user = user
 
-    def synchronize(self, checksum=False):
+    def synchronize(self, checksum=False, log_callback=None):
         # 同期対象ファイルリストを一時ファイルに書き出す
         include_set = set()
         def add_all_dirs(path):
@@ -32,15 +32,37 @@ class RsyncAudioSynchronizer:
                 if dir_path:
                     include_set.add(dir_path + "/")
             include_set.add(path)
-        for audio in self.audio_sync_data.sheet_Albums:
+        
+        def print_log(msg, end="\n"):
+            print(msg, end=end, flush=True)
+            if log_callback:
+                log_callback(msg + end)
+
+        # デバッグ: sheet_Albumsの内容を確認
+        albums = list(self.audio_sync_data.sheet_Albums)
+        print_log(f"DEBUG: sheet_Albumsから{len(albums)}件のファイルを取得")
+        
+        sync_count = 0
+        for audio in albums:
             if getattr(audio, 'sync', None) == "○":
+                sync_count += 1
                 rel_path = audio.filepath_to_relative.replace(os.sep, self.remote_os_sep)
+                print_log(f"DEBUG: 同期対象: {rel_path}")
                 add_all_dirs(rel_path)
+        
+        print_log(f"DEBUG: sync='○'のファイル: {sync_count}件")
+        print_log(f"DEBUG: include_setのサイズ: {len(include_set)}")
+        
         for audio in self.audio_sync_data.sheet_Not_in_Albums:
             if getattr(audio, 'sync', None) == "○":
                 rel_path = audio.filepath_to_relative.replace(os.sep, self.remote_os_sep)
                 add_all_dirs(rel_path)
         # プレイリストは後で個別送信するため、ここでは含めない
+
+        def print_log(msg, end="\n"):
+            print(msg, end=end, flush=True)
+            if log_callback:
+                log_callback(msg + end)
 
         fd, include_path = tempfile.mkstemp()
         temp_dir = tempfile.mkdtemp() #リモートのディレクトリ内のm3u8などのファイルを削除するため使用
@@ -64,17 +86,18 @@ class RsyncAudioSynchronizer:
             if checksum:
                 rsync_cmd.insert(1, "-c")
             logger.info("Executing rsync: " + " ".join(rsync_cmd))
+            print_log("Executing rsync: " + " ".join(rsync_cmd))
             try:
                 proc = subprocess.Popen(rsync_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 for line in proc.stdout:
                     if not line.rstrip().endswith("/"):
-                        print(line, end="")
+                        print_log(line, end="")
                     logger.info(line.rstrip())
                 proc.wait()
                 if proc.returncode != 0:
-                    print("rsync failed: returncode", proc.returncode)
+                    print_log(f"rsync failed: returncode {proc.returncode}")
             except Exception as e:
-                print("rsync failed:", e)
+                print_log(f"rsync failed: {e}")
             # プレイリストm3uファイルを一時作成し、個別にrsyncで送信
             for name, playlist in self.audio_sync_data.sheets_playlist.items():
                 fd_m3u, m3u_path = tempfile.mkstemp(suffix=".m3u8")
@@ -90,13 +113,13 @@ class RsyncAudioSynchronizer:
                     try:
                         proc = subprocess.Popen(rsync_m3u_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                         for line in proc.stdout:
-                            print(line, end="")
+                            print_log(line, end="")
                             logger.info(line.rstrip())
                         proc.wait()
                         if proc.returncode != 0:
-                            print(f"rsync playlist failed: returncode {proc.returncode}")
+                            print_log(f"rsync playlist failed: returncode {proc.returncode}")
                     except Exception as e:
-                        print(f"rsync playlist failed: {e}")
+                        print_log(f"rsync playlist failed: {e}")
                 finally:
                     os.close(fd_m3u)
                     os.remove(m3u_path)

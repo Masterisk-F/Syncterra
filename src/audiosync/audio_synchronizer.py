@@ -61,9 +61,14 @@ class AudioSynchronizer(metaclass=ABCMeta):
             os.close(fd)
             os.remove(path)
 
-    def synchronize(self):
+    def synchronize(self, log_callback=None):
         #同期メイン処理。オーバーライドの必要なし
         #いまのところ、audio_sync_data.dir_to_synchronize[0]だけの同期に対応
+
+        def print_log(msg, end="\n"):
+            print(msg, end=end, flush=True)
+            if log_callback:
+                log_callback(msg + end)
 
         dict_from = {}
         #dictionary{コピー先相対ファイルパス: (同期済みフラグ, Audioインスタンス)}
@@ -83,7 +88,7 @@ class AudioSynchronizer(metaclass=ABCMeta):
         #コピー先のファイルを一覧化(パスでの文字列比較のため、ディレクトリ区切り文字はos.sepにしてdict_toに入れる！)
         def make_list_remote(relative_path, root_path):
             logger.debug("execute \"ls\" on remote. relative_path=" + relative_path + ", root_path=" + root_path)
-            print(".", end="", flush=True)
+            print_log(".", end="")
             try :
                 for filename, is_dir in self.ls_remote(relative_path):
                     if is_dir:
@@ -95,9 +100,9 @@ class AudioSynchronizer(metaclass=ABCMeta):
                         #list_to.append([False,(relative_path + os.sep + filename, is_dir)])
             except FileNotFoundError:
                 pass        
-        print("scanning remote",end="")
+        print_log("scanning remote",end="")
         make_list_remote("",self.audio_sync_data.dir_to_synchronize[0])
-        print("")
+        print_log("")
 
         #AudioSyncDataでチェックが付いていて、コピー先ファイルの一覧にあるファイルに、from,to双方フラグ建てる
         for relative_filepath, (chkflg, audio) in dict_from.items():
@@ -111,7 +116,7 @@ class AudioSynchronizer(metaclass=ABCMeta):
             if chkflg == False:
                 if os.path.splitext(relative_filepath)[1] in self.audio_sync_data.include_extention:
                     logger.info("remove file on remote. path=" + relative_filepath.replace(os.sep, self.__remote_os_sep))
-                    print("remove file on remote. path=" + relative_filepath.replace(os.sep, self.__remote_os_sep))
+                    print_log("remove file on remote. path=" + relative_filepath.replace(os.sep, self.__remote_os_sep))
                     self.rm_remote(relative_filepath.replace(os.sep, self.__remote_os_sep))
         
         #AudioSyncDataでチェックがついて、かつ同期済みフラグの付いていないファイルをコピー先へpush。ディレクトリが無いなら前もってmkdir
@@ -124,7 +129,7 @@ class AudioSynchronizer(metaclass=ABCMeta):
         for relative_filepath, (chkflg, audio) in dict_from.items():
             if chkflg == False and audio.sync == "○":
                 i += 1
-                print(str(i) + "/" + str(n) + " Copy file. path=" + audio.filepath_to_relative.replace(os.sep, self.__remote_os_sep))
+                print_log(str(i) + "/" + str(n) + " Copy file. path=" + audio.filepath_to_relative.replace(os.sep, self.__remote_os_sep))
                 try:
                     #TODO : ディレクトリ存在確認とりあえずの実装。existsメソッドとか追加したほうが良いかも
                     self.ls_remote(os.path.dirname(audio.filepath_to_relative).replace(os.sep, self.__remote_os_sep))
