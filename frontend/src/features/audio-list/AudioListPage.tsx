@@ -1,13 +1,13 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
-import { Title, Paper, Stack, useMantineColorScheme, Button, Group } from '@mantine/core';
+import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy, IconPlayerPlay, IconTerminal2 } from '@tabler/icons-react';
 import type { Track } from '../../types/track';
-import { MOCK_TRACKS } from './mockData';
 import ProcessLogDrawer from './ProcessLogDrawer';
+import { getTracks, batchUpdateTracks, scanFiles, syncFiles } from '../../api';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -25,7 +25,8 @@ const formatDuration = (seconds: number): string => {
 };
 
 export default function AudioListPage() {
-    const [rowData, setRowData] = useState<Track[]>(MOCK_TRACKS);
+    const [rowData, setRowData] = useState<Track[]>([]);
+    const [loading, setLoading] = useState(true);
     const { colorScheme } = useMantineColorScheme();
 
     // Control Panel State
@@ -43,13 +44,53 @@ export default function AudioListPage() {
             : themeQuartz;
     }, [colorScheme]);
 
+    // Load tracks from API
+    useEffect(() => {
+        const loadTracks = async () => {
+            try {
+                const tracks = await getTracks();
+                // APIのTrack型をフロント型に変換（必要に応じて）
+                const frontendTracks: Track[] = tracks.map(t => ({
+                    id: t.id,
+                    msg: '',
+                    sync: t.sync,
+                    title: t.title || '',
+                    artist: t.artist || '',
+                    album_artist: '',
+                    composer: '',
+                    album: t.album || '',
+                    track_num: '',
+                    length: 0,
+                    file_name: t.file_name,
+                    file_path: t.file_path,
+                    file_path_to_relative: t.relative_path || '',
+                    codec: '',
+                    size: 0,
+                    added_date: '',
+                    update_date: '',
+                }));
+                setRowData(frontendTracks);
+            } catch (error) {
+                console.error('Failed to load tracks:', error);
+                notifications.show({
+                    title: 'エラー',
+                    message: 'トラック一覧の読み込みに失敗しました',
+                    color: 'red',
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadTracks();
+    }, []);
+
     // Add log helper
     const addLog = (message: string) => {
         const timestamp = new Date().toLocaleTimeString();
         setLogs(prev => [`[${timestamp}] ${message}`, ...prev]);
     };
 
-    // Mock Scan
+    // Scan実行
     const handleScan = async () => {
         setIsScanning(true);
         setIsLogDrawerOpen(true);
@@ -57,18 +98,43 @@ export default function AudioListPage() {
         setLogs([]);
         addLog('スキャンを開始しました...');
 
-        for (let i = 0; i <= 100; i += 10) {
-            setProgress(i);
-            addLog(`スキャン中: ${i}% 完了`);
-            await new Promise(resolve => setTimeout(resolve, 300));
+        try {
+            await scanFiles();
+            // スキャン完了後、トラック一覧を再取得
+            const tracks = await getTracks();
+            const frontendTracks: Track[] = tracks.map(t => ({
+                id: t.id,
+                msg: '',
+                sync: t.sync,
+                title: t.title || '',
+                artist: t.artist || '',
+                album_artist: '',
+                composer: '',
+                album: t.album || '',
+                track_num: '',
+                length: 0,
+                file_name: t.file_name,
+                file_path: t.file_path,
+                file_path_to_relative: t.relative_path || '',
+                codec: '',
+                size: 0,
+                added_date: '',
+                update_date: '',
+            }));
+            setRowData(frontendTracks);
+            addLog('スキャン完了');
+            notifications.show({ title: 'スキャン完了', message: 'データベースを更新しました', color: 'blue' });
+        } catch (error) {
+            console.error('Scan failed:', error);
+            addLog('スキャン失敗: ' + error);
+            notifications.show({ title: 'エラー', message: 'スキャンに失敗しました', color: 'red' });
+        } finally {
+            setIsScanning(false);
+            setProgress(100);
         }
-
-        addLog('スキャン完了: 5件の更新が見つかりました');
-        setIsScanning(false);
-        notifications.show({ title: 'スキャン完了', message: 'データベースを更新しました', color: 'blue' });
     };
 
-    // Mock Sync
+    // Sync実行
     const handleSync = async () => {
         setIsSyncing(true);
         setIsLogDrawerOpen(true);
@@ -79,27 +145,44 @@ export default function AudioListPage() {
         const syncCount = rowData.filter(r => r.sync).length;
         addLog(`同期対象: ${syncCount} ファイル`);
 
-        for (let i = 0; i <= 100; i += 5) {
-            setProgress(i);
-            if (i % 20 === 0) {
-                addLog(`転送中: File_${i / 20}.mp3 (5.4MB)`);
-            }
-            await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            await syncFiles();
+            addLog('同期完了');
+            notifications.show({ title: '同期完了', message: 'ファイルの同期が完了しました', color: 'green' });
+        } catch (error) {
+            console.error('Sync failed:', error);
+            addLog('同期失敗: ' + error);
+            notifications.show({ title: 'エラー', message: '同期に失敗しました', color: 'red' });
+        } finally {
+            setIsSyncing(false);
+            setProgress(100);
         }
-
-        addLog('同期完了: 全てのファイルが転送されました');
-        setIsSyncing(false);
-        notifications.show({ title: '同期完了', message: 'ファイルの同期が完了しました', color: 'green' });
     };
 
-    // Save Sync Settings
+    // Save Sync Settings - syncフラグをバックエンドに保存
     const handleSaveSync = async () => {
-        console.log('Saving sync settings:', rowData.map(r => ({ id: r.id, sync: r.sync })));
-        notifications.show({
-            title: '設定保存',
-            message: '同期設定を保存しました',
-            color: 'blue',
-        });
+        try {
+            const changedTracks = rowData.filter(r => r.sync);
+            if (changedTracks.length > 0) {
+                await batchUpdateTracks(changedTracks.map(r => r.id), true);
+            }
+            const unchangedTracks = rowData.filter(r => !r.sync);
+            if (unchangedTracks.length > 0) {
+                await batchUpdateTracks(unchangedTracks.map(r => r.id), false);
+            }
+            notifications.show({
+                title: '設定保存',
+                message: '同期設定を保存しました',
+                color: 'blue',
+            });
+        } catch (error) {
+            console.error('Failed to save sync settings:', error);
+            notifications.show({
+                title: 'エラー',
+                message: '設定の保存に失敗しました',
+                color: 'red',
+            });
+        }
     };
 
     // Sync Toggle Handler
@@ -117,7 +200,7 @@ export default function AudioListPage() {
     };
 
     // Batch Paste Handler (Ctrl+V)
-    const handleContainerPaste = async (e: React.ClipboardEvent) => {
+    const handleContainerPaste = async (_e: React.ClipboardEvent) => {
         if (!gridApi) return;
 
         const clipboardText = await navigator.clipboard.readText();
@@ -283,6 +366,15 @@ export default function AudioListPage() {
         sortable: false,
         filter: false,
     }), []);
+
+    if (loading) {
+        return (
+            <Stack align="center" justify="center" h={400}>
+                <Loader size="lg" />
+                <Text c="dimmed">トラック一覧を読み込み中...</Text>
+            </Stack>
+        );
+    }
 
     return (
         <Stack gap="md" h="100%">

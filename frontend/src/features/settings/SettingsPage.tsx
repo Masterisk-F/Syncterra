@@ -13,32 +13,110 @@ import {
     NumberInput,
     PasswordInput,
     Switch,
-    Alert
+    Alert,
+    Loader
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconDeviceFloppy, IconDownload, IconInfoCircle } from '@tabler/icons-react';
 import type { AppSettings, SyncMethod } from '../../types/settings';
 import { DEFAULT_SETTINGS } from '../../types/settings';
+import { getSettings, updateSetting } from '../../api';
+import type { Setting } from '../../api/types';
+
+// バックエンドの設定キーマッピング
+const SETTING_KEYS = {
+    scanPaths: 'scan_paths',
+    excludeDirs: 'exclude_dirs',
+    targetExtensions: 'target_exts',
+    syncDestPath: 'sync_dest',
+    syncMethod: 'sync_mode',
+    ftpHost: 'ftp_host',
+    ftpPort: 'ftp_port',
+    ftpUser: 'ftp_user',
+    ftpPassword: 'ftp_pass',
+    rsyncHost: 'rsync_host',
+    rsyncPort: 'rsync_port',
+    rsyncUser: 'rsync_user',
+} as const;
+
+// Setting[] を AppSettings に変換
+const settingsArrayToApp = (settings: Setting[]): AppSettings => {
+    const settingsMap = new Map(settings.map(s => [s.key, s.value]));
+
+    const parseScanPaths = (val?: string): string[] => {
+        if (!val) return [];
+        try {
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    };
+
+    const parseStringArray = (val?: string): string[] => {
+        if (!val) return [];
+        return val.split(',').map(s => s.trim()).filter(Boolean);
+    };
+
+    return {
+        scanPaths: parseScanPaths(settingsMap.get(SETTING_KEYS.scanPaths)),
+        excludeDirs: parseStringArray(settingsMap.get(SETTING_KEYS.excludeDirs)),
+        targetExtensions: parseStringArray(settingsMap.get(SETTING_KEYS.targetExtensions)) || DEFAULT_SETTINGS.targetExtensions,
+        syncDestPath: settingsMap.get(SETTING_KEYS.syncDestPath) || '',
+        syncMethod: (settingsMap.get(SETTING_KEYS.syncMethod) || 'adb') as SyncMethod,
+        ftpHost: settingsMap.get(SETTING_KEYS.ftpHost),
+        ftpPort: settingsMap.get(SETTING_KEYS.ftpPort) ? Number(settingsMap.get(SETTING_KEYS.ftpPort)) : 21,
+        ftpUser: settingsMap.get(SETTING_KEYS.ftpUser),
+        ftpPassword: settingsMap.get(SETTING_KEYS.ftpPassword),
+        rsyncHost: settingsMap.get(SETTING_KEYS.rsyncHost),
+        rsyncPort: settingsMap.get(SETTING_KEYS.rsyncPort) ? Number(settingsMap.get(SETTING_KEYS.rsyncPort)) : 22,
+        rsyncUser: settingsMap.get(SETTING_KEYS.rsyncUser),
+    };
+};
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
 
-    // Mock load settings
+    // Load settings from API
     useEffect(() => {
-        // In a real app, this would fetch from API
-        const savedSettings = localStorage.getItem('audioSyncSettings');
-        if (savedSettings) {
-            setSettings(JSON.parse(savedSettings));
-        }
+        const loadSettings = async () => {
+            try {
+                const apiSettings = await getSettings();
+                setSettings(settingsArrayToApp(apiSettings));
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                notifications.show({
+                    title: 'エラー',
+                    message: '設定の読み込みに失敗しました',
+                    color: 'red',
+                });
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+        loadSettings();
     }, []);
 
     const handleSave = async () => {
         setLoading(true);
         try {
-            // Mock save
-            await new Promise(resolve => setTimeout(resolve, 500));
-            localStorage.setItem('audioSyncSettings', JSON.stringify(settings));
+            // 各設定をバックエンドに送信
+            await updateSetting(SETTING_KEYS.scanPaths, JSON.stringify(settings.scanPaths));
+            await updateSetting(SETTING_KEYS.excludeDirs, settings.excludeDirs.join(','));
+            await updateSetting(SETTING_KEYS.targetExtensions, settings.targetExtensions.join(','));
+            await updateSetting(SETTING_KEYS.syncDestPath, settings.syncDestPath);
+            await updateSetting(SETTING_KEYS.syncMethod, settings.syncMethod);
+
+            if (settings.ftpHost) await updateSetting(SETTING_KEYS.ftpHost, settings.ftpHost);
+            if (settings.ftpPort) await updateSetting(SETTING_KEYS.ftpPort, String(settings.ftpPort));
+            if (settings.ftpUser) await updateSetting(SETTING_KEYS.ftpUser, settings.ftpUser);
+            if (settings.ftpPassword) await updateSetting(SETTING_KEYS.ftpPassword, settings.ftpPassword);
+
+            if (settings.rsyncHost) await updateSetting(SETTING_KEYS.rsyncHost, settings.rsyncHost);
+            if (settings.rsyncPort) await updateSetting(SETTING_KEYS.rsyncPort, String(settings.rsyncPort));
+            if (settings.rsyncUser) await updateSetting(SETTING_KEYS.rsyncUser, settings.rsyncUser);
 
             notifications.show({
                 title: '成功',
@@ -46,6 +124,7 @@ export default function SettingsPage() {
                 color: 'green',
             });
         } catch (error) {
+            console.error('Failed to save settings:', error);
             notifications.show({
                 title: 'エラー',
                 message: '設定の保存に失敗しました',
@@ -75,6 +154,15 @@ export default function SettingsPage() {
             color: 'blue',
         });
     };
+
+    if (initialLoading) {
+        return (
+            <Stack align="center" justify="center" h={400}>
+                <Loader size="lg" />
+                <Text c="dimmed">設定を読み込み中...</Text>
+            </Stack>
+        );
+    }
 
     return (
         <Stack gap="lg" maw={800}>

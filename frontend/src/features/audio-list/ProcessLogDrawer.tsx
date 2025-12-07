@@ -1,4 +1,4 @@
-import { Drawer, ScrollArea, Stack, Text, Progress, Group, LoadingOverlay, Box } from '@mantine/core';
+import { Drawer, ScrollArea, Stack, Text, Progress, Group, Box } from '@mantine/core';
 import { IconTerminal2 } from '@tabler/icons-react';
 
 interface ProcessLogDrawerProps {
