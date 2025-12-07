@@ -49,6 +49,39 @@ export default function AudioListPage() {
     const handleWebSocketMessage = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
         setLogs(prev => [`[${timestamp}] ${message}`, ...prev]);
+
+        // スキャン完了を検出してトラック一覧を再読み込み
+        if (message.includes('Scan complete')) {
+            const reloadTracks = async () => {
+                try {
+                    const tracks = await getTracks();
+                    const frontendTracks: Track[] = tracks.map(t => ({
+                        id: t.id,
+                        msg: '',
+                        sync: t.sync,
+                        title: t.title || '',
+                        artist: t.artist || '',
+                        album_artist: '',
+                        composer: '',
+                        album: t.album || '',
+                        track_num: '',
+                        length: 0,
+                        file_name: t.file_name,
+                        file_path: t.file_path,
+                        file_path_to_relative: t.relative_path || '',
+                        codec: '',
+                        size: 0,
+                        added_date: '',
+                        update_date: '',
+                    }));
+                    setRowData(frontendTracks);
+                    setIsScanning(false);
+                } catch (error) {
+                    console.error('Failed to reload tracks:', error);
+                }
+            };
+            reloadTracks();
+        }
     }, []);
 
     const handleWebSocketProgress = useCallback((progressValue: number) => {
@@ -116,37 +149,12 @@ export default function AudioListPage() {
 
         try {
             await scanFiles();
-            // スキャン完了後、トラック一覧を再取得
-            const tracks = await getTracks();
-            const frontendTracks: Track[] = tracks.map(t => ({
-                id: t.id,
-                msg: '',
-                sync: t.sync,
-                title: t.title || '',
-                artist: t.artist || '',
-                album_artist: '',
-                composer: '',
-                album: t.album || '',
-                track_num: '',
-                length: 0,
-                file_name: t.file_name,
-                file_path: t.file_path,
-                file_path_to_relative: t.relative_path || '',
-                codec: '',
-                size: 0,
-                added_date: '',
-                update_date: '',
-            }));
-            setRowData(frontendTracks);
-            addLog('スキャン完了');
-            notifications.show({ title: 'スキャン完了', message: 'データベースを更新しました', color: 'blue' });
+            // トラック一覧の再読み込みはWebSocketの"Scan complete"メッセージで実行
         } catch (error) {
             console.error('Scan failed:', error);
             addLog('スキャン失敗: ' + error);
             notifications.show({ title: 'エラー', message: 'スキャンに失敗しました', color: 'red' });
-        } finally {
             setIsScanning(false);
-            setProgress(100);
         }
     };
 
