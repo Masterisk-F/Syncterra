@@ -4,10 +4,19 @@ from backend.main import app
 from backend.db.database import init_db
 import pytest_asyncio
 
+from sqlalchemy import delete
+from backend.db.models import Setting, Track
+from backend.db.database import AsyncSessionLocal
+
 @pytest_asyncio.fixture(scope="function")
 async def client():
     # Initialize DB before test
     await init_db()
+    async with AsyncSessionLocal() as session:
+        await session.execute(delete(Setting))
+        await session.execute(delete(Track))
+        await session.commit()
+    
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
