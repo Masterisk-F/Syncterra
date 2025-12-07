@@ -1,13 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
-import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text } from '@mantine/core';
+import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text, Badge } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy, IconPlayerPlay, IconTerminal2 } from '@tabler/icons-react';
 import type { Track } from '../../types/track';
 import ProcessLogDrawer from './ProcessLogDrawer';
 import { getTracks, batchUpdateTracks, scanFiles, syncFiles } from '../../api';
+import { useWebSocket } from '../../api/useWebSocket';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -43,6 +44,21 @@ export default function AudioListPage() {
             ? themeQuartz.withPart(colorSchemeDarkBlue)
             : themeQuartz;
     }, [colorScheme]);
+
+    // WebSocket接続 - ログとプログレス受信
+    const handleWebSocketMessage = useCallback((message: string) => {
+        const timestamp = new Date().toLocaleTimeString();
+        setLogs(prev => [`[${timestamp}] ${message}`, ...prev]);
+    }, []);
+
+    const handleWebSocketProgress = useCallback((progressValue: number) => {
+        setProgress(progressValue);
+    }, []);
+
+    const { isConnected } = useWebSocket(
+        handleWebSocketMessage,
+        handleWebSocketProgress
+    );
 
     // Load tracks from API
     useEffect(() => {
@@ -382,6 +398,14 @@ export default function AudioListPage() {
                 <Group justify="space-between" align="center">
                     <Group>
                         <Title order={2}>音楽ファイル一覧</Title>
+
+                        <Badge
+                            color={isConnected ? 'green' : 'gray'}
+                            variant="dot"
+                            size="sm"
+                        >
+                            {isConnected ? 'WebSocket接続中' : 'オフライン'}
+                        </Badge>
 
                         <Button
                             leftSection={<IconRefresh size={20} />}

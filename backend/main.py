@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from .db.database import init_db
 from .api import settings, tracks, system, websocket
 import logging
+import os
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +21,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# AsyncAPI仕様の配信
+@app.get("/asyncapi.yaml")
+async def get_asyncapi():
+    asyncapi_path = os.path.join(os.path.dirname(__file__), "..", "asyncapi.yaml")
+    return FileResponse(asyncapi_path, media_type="application/x-yaml")
 
 @app.on_event("startup")
 async def on_startup():
