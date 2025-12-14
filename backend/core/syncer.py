@@ -228,15 +228,21 @@ class RsyncSynchronizer(AudioSynchronizer):
              except: scan_paths = []
              if not scan_paths: return
              
-             src_dirs = [s.rstrip(os.sep) + os.sep for s in scan_paths]
-             
-             remote = f"{user}@{host}:{dest_path}" if user else f"{host}:{dest_path}"
-             
+             src_dirs = [s.rstrip(os.sep) for s in scan_paths]
+                          
              cmd = [
                  "rsync", "-avz", "--delete-excluded", "--include-from", include_path, "--exclude=*",
-                 "-e", f"ssh -p {port}"
              ]
              cmd.extend(src_dirs)
+
+             if user and host:
+                cmd +=["-e", f"ssh -p {port}"]
+                remote = f"{user}@{host}:{dest_path}"
+             elif host:
+                cmd +=["-e", f"ssh -p {port}"]
+                remote = f"{host}:{dest_path}"
+             else:
+                remote = f"{dest_path}"
              cmd.append(remote)
              
              self.log(f"Running rsync: {' '.join(cmd)}")
@@ -263,19 +269,22 @@ class RsyncSynchronizer(AudioSynchronizer):
         port = self.settings.get("rsync_port", "22")
         dest_path = self.settings.get("sync_dest", "~")
         
-        remote = f"{user}@{host}:{dest_path}" if user else f"{host}:{dest_path}"
-        # dest_path joined with relative_path_to
-        # Wait, dest_path is root. relative_path_to is from root.
-        # Clean logic: remote destination is `host:dest_path/relative_path_to`
-        # Careful with joining
-        remote_full = f"{remote}/{relative_path_to}".replace("//", "/")
-        
         cmd = [
              "rsync", "-avz", 
-             "-e", f"ssh -p {port}",
-             filepath_from, remote_full
         ]
-        self.log(f"Copying file (rsync): {relative_path_to}")
+        if user and host:
+            cmd += ["-e", f"ssh -p {port}"]
+            remote = f"{user}@{host}:{dest_path}"
+        elif host:
+            cmd += ["-e", f"ssh -p {port}"]
+            remote = f"{host}:{dest_path}"
+        else:
+            remote = f"{dest_path}"
+        remote_full = f"{remote}/{relative_path_to}".replace("//", "/")
+        
+        cmd += [filepath_from, remote_full]
+        
+        self.log(f"Copying file (rsync): {' '.join(cmd)}")
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if proc.returncode != 0:
              self.log(f"Rsync cp failed: {proc.stderr}")
@@ -460,4 +469,22 @@ class SyncService:
                 else:
                     if log_callback: log_callback(f"Unknown mode: {mode}")
 
+
             await run_in_threadpool(_sync)
+
+
+# --- __main__ entrypoint for standalone debug ---
+if __name__ == "__main__":
+    import sys
+    import logging
+    import asyncio
+
+    # 標準出力にログを出す設定
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+    async def main():
+        def log_callback(msg):
+            print(msg)
+        await SyncService.run_sync(log_callback=log_callback)
+
+    asyncio.run(main())
