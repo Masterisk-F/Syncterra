@@ -42,14 +42,11 @@ async def scan_task():
 
 async def sync_task():
     logger.info("Sync task started")
+    loop = asyncio.get_running_loop()
     
     def callback(msg):
         # Allow sync code to bradcast
-        try:
-            loop = asyncio.get_running_loop()
-            asyncio.run_coroutine_threadsafe(manager.broadcast(msg), loop)
-        except RuntimeError:
-            pass
+        asyncio.run_coroutine_threadsafe(manager.broadcast(msg), loop)
             
     await SyncService.run_sync(log_callback=callback)
     await manager.broadcast("Sync complete")
