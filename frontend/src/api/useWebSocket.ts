@@ -74,6 +74,9 @@ export const useWebSocket = (
                 clearTimeout(reconnectTimeout.current);
             }
             if (ws.current) {
+                // Prevent reconnection by clearing handler
+                ws.current.onclose = null;
+                ws.current.onerror = null;
                 ws.current.close();
             }
         };
