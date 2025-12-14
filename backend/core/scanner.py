@@ -1,3 +1,4 @@
+
 import os
 import datetime
 import logging
@@ -14,6 +15,7 @@ from ..db.models import Track, Setting
 from ..db.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
+
 
 class ScannerService:
     def __init__(self):
@@ -98,6 +100,7 @@ class ScannerService:
                             track_in_db.last_modified = mtime_dt
                             track_in_db.msg = None # Clear error msg if any
                             updated_count += 1
+                            logger.info(f"File updated: {file_path}")
                 else:
                     # New file
                     meta = await run_in_threadpool(self._extract_metadata, file_path)
@@ -112,6 +115,7 @@ class ScannerService:
                         )
                         db.add(new_track)
                         added_count += 1
+                        logger.info(f"New file added: {file_path}")
             
             # 3. Mark missing files
             missing_count = 0
@@ -124,6 +128,7 @@ class ScannerService:
                     if track.msg != "Missing":
                         track.msg = "Missing"
                         missing_count += 1
+                        logger.info(f"File missing: {file_path}")
             
             await db.commit()
             logger.info(f"Scan complete. Added: {added_count}, Updated: {updated_count}, Missing: {missing_count}")
@@ -241,3 +246,24 @@ class ScannerService:
             logger.error(f"Error parsing metadata for {filepath}: {e}")
             data["msg"] = "Error"
             return data
+
+
+# --- __main__ entry for standalone debug ---
+if __name__ == "__main__":
+    import asyncio
+    import sys
+    # 標準出力にログを出す設定
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
+    logger.info("ScannerService standalone mode start")
+    scanner = ScannerService()
+    # run_scanはasyncなのでasyncioで実行
+    try:
+        asyncio.run(scanner.run_scan())
+    except Exception as e:
+        logger.exception(f"ScannerService failed: {e}")
+
+
