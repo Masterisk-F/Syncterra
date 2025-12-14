@@ -48,7 +48,7 @@ export default function AudioListPage() {
     // WebSocket接続 - ログとプログレス受信
     const handleWebSocketMessage = useCallback((message: string) => {
         const timestamp = new Date().toLocaleTimeString();
-        setLogs(prev => [`[${timestamp}] ${message}`, ...prev]);
+        setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
 
         // スキャン完了を検出してトラック一覧を再読み込み
         if (message.includes('Scan complete')) {
@@ -136,7 +136,7 @@ export default function AudioListPage() {
     // Add log helper
     const addLog = (message: string) => {
         const timestamp = new Date().toLocaleTimeString();
-        setLogs(prev => [`[${timestamp}] ${message}`, ...prev]);
+        setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
     };
 
     // Scan実行
