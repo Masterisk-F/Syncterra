@@ -33,12 +33,37 @@ def log_to_ws(message: str):
 async def scan_task():
     logger.info("Scan task started")
     scanner = ScannerService()
-    # We can monkeypatch logger or pass callback if supported
-    # Verify Scanner supports logging callback? No, currently it logs to python logger.
-    # We should update ScannerService to broadcast logs too.
-    # For now, let's just run it.
-    await scanner.run_scan()
-    await manager.broadcast("Scan complete")
+    
+    import json
+    
+    # WebSocket callbacks
+    # Note: run_scan runs in a threadpool (mostly), but calling these callbacks directly
+    # from the thread might be an issue if manager.broadcast is async.
+    # However, Scanner calls them synchronously.
+    # We need to bridge sync -> async.
+    
+    loop = asyncio.get_running_loop()
+
+    def progress_callback(progress: int):
+        data = json.dumps({"type": "progress", "progress": progress})
+        asyncio.run_coroutine_threadsafe(manager.broadcast(data), loop)
+
+    def log_callback(message: str):
+        data = json.dumps({"type": "log", "message": message})
+        asyncio.run_coroutine_threadsafe(manager.broadcast(data), loop)
+
+    await scanner.run_scan(progress_callback=progress_callback, log_callback=log_callback)
+    
+    # Final completion message handled by scanner's log_callback mostly, 
+    # but frontend expects specific "Scan complete" string to reload?
+    # Frontend logic: if (message.includes('Scan complete')) -> reload
+    # Scanner logs: "Scan complete. Added: ..."
+    # So it should be fine.
+    # But let's send a pure status update or just rely on the log.
+    # The original code sent "Scan complete" string.
+    # Scanner now logs "Scan complete..." via log_callback.
+    # That should trigger the frontend reload.
+
 
 async def sync_task():
     logger.info("Sync task started")

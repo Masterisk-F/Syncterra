@@ -38,9 +38,21 @@
 | API-002 | スキャン実行トリガー (Trigger Scan) | なし | POST /api/scan を実行 | ・HTTP 200/202 が返却されること<br>・status: "accepted" であること |
 | API-003 | 同期実行トリガー (Trigger Sync) | なし | POST /api/sync を実行 | ・HTTP 200/202 が返却されること<br>・status: "accepted" であること |
 
+## 4. Scanner Progress & Logging
+**Test File**: `tests/test_scanner_progress.py`
+**Scope**: スキャン進捗通知、ログコールバック機能
+
+| ID | Test Case Name | Pre-conditions | Execution Steps | Expected Result |
+|----|----------------|----------------|-----------------|-----------------|
+| SCN-PRG-001 | 進捗・ログコールバック (Progress & Log Callbacks) | ・モックファイルシステム (20ファイル)<br>・空のDB | 1. `run_scan` を `progress_callback` と `log_callback` 付きで実行<br>2. コールバック呼び出しを検証 | ・`progress_callback` が20回以上呼ばれること<br>・最終的に100%で完了すること<br>・`log_callback` が22回呼ばれること (開始 + 20ファイル + 完了)<br>・各ファイル追加ログが出力されること |
+
 ## Automation Info
 自動テストは以下のコマンドで実行可能です。
 
 ```bash
+# 統合テスト
 PYTHONPATH=. rye run pytest tests/integration -v
+
+# 全テスト
+rye run python -m pytest tests/ -v
 ```

@@ -30,8 +30,11 @@ class ScannerService:
     def _get_setting(self, key: str, default=None):
         return self.settings.get(key, default)
 
-    async def run_scan(self):
+    async def run_scan(self, progress_callback=None, log_callback=None):
         logger.info("Scan started")
+        if log_callback:
+            log_callback("Scan started")
+
         async with AsyncSessionLocal() as db:
             await self.load_settings(db)
             
@@ -56,7 +59,9 @@ class ScannerService:
             exclude_dirs = [d.strip() for d in exclude_dirs_str.split(",") if d.strip()]
 
             if not scan_paths:
-                logger.warning("No scan paths configured.")
+                msg = "No scan paths configured."
+                logger.warning(msg)
+                if log_callback: log_callback(msg)
                 return
 
             found_files = []
@@ -66,6 +71,10 @@ class ScannerService:
                 self._scan_filesystem, scan_paths, target_exts, exclude_dirs
             )
             
+            total_files = len(files_to_process)
+            processed_files = 0
+            last_progress = 0
+
             # 2. Process Files (Extract Metadata) & Update DB
             # We process in batches or one by one? 
             # Ideally verify against DB cache.
@@ -100,7 +109,9 @@ class ScannerService:
                             track_in_db.last_modified = mtime_dt
                             track_in_db.msg = None # Clear error msg if any
                             updated_count += 1
-                            logger.info(f"File updated: {file_path}")
+                            msg = f"File updated: {file_path}"
+                            logger.info(msg)
+                            if log_callback: log_callback(msg)
                 else:
                     # New file
                     meta = await run_in_threadpool(self._extract_metadata, file_path)
@@ -115,8 +126,17 @@ class ScannerService:
                         )
                         db.add(new_track)
                         added_count += 1
-                        logger.info(f"New file added: {file_path}")
-            
+                        msg = f"New file added: {file_path}"
+                        logger.info(msg)
+                        if log_callback: log_callback(msg)
+                
+                processed_files += 1
+                if progress_callback:
+                    current_progress = int((processed_files / total_files) * 100)
+                    if current_progress >= last_progress + 5 or current_progress == 100:
+                        progress_callback(current_progress)
+                        last_progress = current_progress
+
             # 3. Mark missing files
             missing_count = 0
             for file_path, track in existing_tracks.items():
@@ -128,10 +148,17 @@ class ScannerService:
                     if track.msg != "Missing":
                         track.msg = "Missing"
                         missing_count += 1
-                        logger.info(f"File missing: {file_path}")
+                        msg = f"File missing: {file_path}"
+                        logger.info(msg)
+                        if log_callback: log_callback(msg)
             
+            if progress_callback and last_progress < 100:
+                 progress_callback(100)
+
             await db.commit()
-            logger.info(f"Scan complete. Added: {added_count}, Updated: {updated_count}, Missing: {missing_count}")
+            summary = f"Scan complete. Added: {added_count}, Updated: {updated_count}, Missing: {missing_count}"
+            logger.info(summary)
+            if log_callback: log_callback(summary)
 
     def _scan_filesystem(self, paths: List[str], exts: List[str], excludes: List[str]):
         results = [] # (full_path, relative_path, mtime)
