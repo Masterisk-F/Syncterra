@@ -14,6 +14,7 @@ export interface Track {
     album: string | null;
     sync: boolean;
     relative_path: string | null;
+    msg: string | null;
 }
 
 export interface TrackUpdate {

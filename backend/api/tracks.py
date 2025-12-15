@@ -17,6 +17,7 @@ class TrackModel(BaseModel):
     album: Optional[str]
     sync: bool
     relative_path: Optional[str]
+    msg: Optional[str]
 
     class Config:
         from_attributes = True

@@ -57,7 +57,7 @@ export default function AudioListPage() {
                     const tracks = await getTracks();
                     const frontendTracks: Track[] = tracks.map(t => ({
                         id: t.id,
-                        msg: '',
+                        msg: t.msg ?? '',
                         sync: t.sync,
                         title: t.title || '',
                         artist: t.artist || '',
@@ -101,7 +101,7 @@ export default function AudioListPage() {
                 // APIのTrack型をフロント型に変換（必要に応じて）
                 const frontendTracks: Track[] = tracks.map(t => ({
                     id: t.id,
-                    msg: '',
+                    msg: t.msg ?? '',
                     sync: t.sync,
                     title: t.title || '',
                     artist: t.artist || '',
