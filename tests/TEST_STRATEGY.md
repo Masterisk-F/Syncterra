@@ -23,7 +23,96 @@ tests/
 └── TEST_STRATEGY.md # 本ドキュメント
 ```
 
-## 2. 開発ワークフロー (Workflow)
+## 2. Unit Test と Integration Test の観点
+
+このセクションでは、Unit TestとIntegration Testで **「何を検証するか」「何を検証しないか」** を明確にします。
+
+### 2.1 Unit Test (単体テスト)
+
+**目的**: 個々の関数・クラス・メソッドが、**独立して正しく動作するか**を検証する。
+
+#### ✅ やること
+| 観点 | 例 |
+|:---|:---|
+| **内部ロジックの検証** | パス変換、文字列処理、計算、条件分岐 |
+| **エッジケースの網羅** | 空入力、Null、特殊文字、境界値 |
+| **例外処理の検証** | エラー時に例外が発生し、適切にハンドリングされるか |
+| **戻り値・副作用の検証** | 関数が期待する出力を返すか、引数が正しく処理されるか |
+
+#### ❌ やらないこと
+| 観点 | 理由 |
+|:---|:---|
+| **DBアクセス** | モック化する。実際のDB操作はIntegrationで検証。 |
+| **ファイルシステム操作** | モック化する。実際のファイル操作はIntegrationで検証。 |
+| **外部プロセス呼び出し** | `subprocess` などはモック化する。 |
+| **複数コンポーネントの連携** | 連携はIntegration Testの責務。 |
+
+#### 設計の要点
+```python
+# 良い例: 外部依存をモックし、ロジック単体をテスト
+@patch("ftplib.FTP")
+def test_ftp_synchronizer_cp_calls_storbinary(mock_ftp):
+    """cpメソッドがFTPのstorbinaryを正しい引数で呼ぶことを検証"""
+    sync = FtpSynchronizer(tracks=[], playlists=[], settings={})
+    sync.cp("/local/file.mp3", "file.mp3")
+    mock_ftp.return_value.storbinary.assert_called_once()
+```
+
+---
+
+### 2.2 Integration Test (結合テスト)
+
+**目的**: 複数のコンポーネントが**連携して正しく動作するか**を検証する。
+
+#### ✅ やること
+| 観点 | 例 |
+|:---|:---|
+| **DBとの連携** | ScannerがDBにレコードを正しく保存するか |
+| **ファイルシステムとの連携** | 一時ファイルを作成し、Scannerが正しく検出するか |
+| **API経由のフロー** | REST APIをリクエストし、DBの状態が変わるか |
+| **設定による動作分岐** | sync_mode の値に応じて正しいSynchronizerが使われるか |
+| **外部コマンドの発行確認** | `subprocess.run` が正しい引数で呼ばれるか（実行自体はモック可） |
+
+#### ❌ やらないこと
+| 観点 | 理由 |
+|:---|:---|
+| **細かいエッジケース** | Unit Testで網羅済み。Integrationでは主要フローに限定。 |
+| **実際の外部サービス** | 本番FTP/SSH/ADBへの接続。ローカルモックサーバーまたはモックを使用。 |
+| **UIレンダリング** | フロントエンドのUIテストはE2E層で行う。 |
+
+#### 設計の要点
+```python
+# 良い例: 実際のDB + モック化したプロセス呼び出しで「フロー」を検証
+@pytest.mark.asyncio
+async def test_syncer_flow_adb(temp_db, create_settings, patch_db_session):
+    """ADBモードで同期すると、adb pushが正しいパスで呼ばれることを検証"""
+    await create_settings(sync_mode="adb", sync_dest="/sdcard/Music")
+    # ... DBにトラックを追加 ...
+    
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        await SyncService.run_sync()
+        
+        # 呼び出し検証 (実行はしていないが、連携の正しさを確認)
+        assert any("adb" in str(call) for call in mock_run.call_args_list)
+```
+
+---
+
+### 2.3 比較まとめ
+
+| 観点 | Unit Test | Integration Test |
+|:---|:---|:---|
+| **検証対象** | 関数・メソッド単体 | 複数コンポーネントの連携 |
+| **データ** | モックデータ | 実DB (インメモリSQLite) |
+| **外部依存** | すべてモック | 要所のみモック（DB/FSは実物） |
+| **実行速度** | 非常に高速 | やや遅い |
+| **テスト数** | 多い（エッジケース網羅） | 少なめ（主要フロー中心） |
+| **失敗時の原因特定** | 容易（1箇所に限定） | やや難しい（複数箇所の可能性） |
+
+> **原則**: Unit Testでロジックを網羅し、Integration Testで「組み合わせて動く」ことを保証する。
+
+## 3. 開発ワークフロー (Workflow)
 
 「常にテストが通る状態」を維持するため、以下のサイクルで開発を進めます。
 
@@ -45,7 +134,7 @@ tests/
 5.  **コミット (Commit)**
     *   全てのテストが通った状態で `git commit` します。
 
-## 3. テストの書き方ガイドライン
+## 4. テストの書き方ガイドライン
 
 ### ドキュメントとしてのテスト
 テストコード自体が仕様書となるよう、ドキュメンテーション文字列（Docstring）を記述します。
@@ -72,7 +161,7 @@ def test_scanner_should_skip_files_without_permission():
 *   ファイル名: `test_*.py`
 *   関数名: `test_<対象機能>_<期待する挙動>` または `test_<対象機能>_<条件>`
 
-## 4. 自動化と品質保証 (Automation)
+## 5. 自動化と品質保証 (Automation)
 
 将来的に以下の自動化を導入し、品質維持コストを下げます。
 
