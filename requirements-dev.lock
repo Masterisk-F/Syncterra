@@ -74,6 +74,7 @@ pydantic-core==2.41.5
     # via pydantic
 pyelftools==0.31
     # via apkutils2
+pyftpdlib==2.1.0
 pygments==2.19.2
     # via pytest
 pytest==9.0.2
