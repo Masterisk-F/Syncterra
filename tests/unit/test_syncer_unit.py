@@ -499,3 +499,287 @@ class TestRsyncSynchronizer:
         actual_lines = set(written_content.strip().splitlines())
         
         assert actual_lines == expected_lines
+
+
+# --- AudioSynchronizer Base Class Tests ---
+
+class TestAudioSynchronizer:
+    """
+    AudioSynchronizer基底クラスのsynchronizeメソッドの動作を検証するテスト。
+    抽象メソッドをモックで実装したサブクラスを使用してテストする。
+    """
+    
+    @pytest.fixture
+    def mock_synchronizer_class(self):
+        """モック実装を持つAudioSynchronizerサブクラスを返す"""
+        from backend.core.syncer import AudioSynchronizer
+        
+        class MockSynchronizer(AudioSynchronizer):
+            def __init__(self, tracks, playlists, settings, log_callback=None):
+                super().__init__(tracks, playlists, settings, log_callback)
+                # モックオブジェクトを作成
+                self._cp_mock = MagicMock()
+                self._rm_remote_mock = MagicMock()
+                self._mkdir_p_remote_mock = MagicMock()
+                self._ls_remote_mock = MagicMock(return_value=[])
+                self._put_playlist_file_mock = MagicMock()
+            
+            # 抽象メソッドを実装(モックを呼び出す)
+            def cp(self, filepath_from, relative_path_to):
+                return self._cp_mock(filepath_from, relative_path_to)
+            
+            def rm_remote(self, relative_filepath_to):
+                return self._rm_remote_mock(relative_filepath_to)
+            
+            def mkdir_p_remote(self, relative_filepath_to):
+                return self._mkdir_p_remote_mock(relative_filepath_to)
+            
+            def ls_remote(self, relative_dir=""):
+                return self._ls_remote_mock(relative_dir)
+            
+            def put_playlist_file(self, relative_dir=""):
+                return self._put_playlist_file_mock(relative_dir)
+        
+        return MockSynchronizer
+    
+    def test_synchronize_copy_new_files(self, mock_synchronizer_class):
+        """
+        リモートに存在しない新規トラックがcpメソッドで転送されること。
+        """
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/new.mp3",
+                file_name="new.mp3",
+                relative_path="/Album/new.mp3"
+            )
+        ]
+        
+        sync = mock_synchronizer_class(tracks, [], {})
+        sync._ls_remote_mock.return_value = []  # リモートは空
+        
+        sync.synchronize()
+        
+        # cpが呼ばれたことを確認
+        sync._cp_mock.assert_called_once_with("/local/new.mp3", "Album/new.mp3")
+    
+    def test_synchronize_skip_existing_files(self, mock_synchronizer_class):
+        """
+        リモートに既に存在するファイルはスキップされること(cpが呼ばれない)。
+        """
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/existing.mp3",
+                file_name="existing.mp3",
+                relative_path="/Album/existing.mp3"
+            )
+        ]
+        
+        sync = mock_synchronizer_class(tracks, [], {})
+        # リモートに同じファイルが存在する(フルパスで返す)
+        # ls_remoteのルート呼び出しでは("Album", True), ("existing.mp3", False)を返すが、
+        # 再帰的にtraverseされるため、最終的にremote_filesには"Album/existing.mp3"が含まれる。
+        # ここではその動作をシミュレートする。
+        def mock_ls_remote_impl(rel_path):
+            if rel_path == "":  # Root
+                return [("Album", True)]
+            elif rel_path == "Album":
+                return [("existing.mp3", False)]
+            else:
+                return []
+        
+        sync._ls_remote_mock.side_effect = mock_ls_remote_impl
+        
+        sync.synchronize()
+        
+        # cpが呼ばれないことを確認
+        sync._cp_mock.assert_not_called()
+    
+    def test_synchronize_delete_remote_files(self, mock_synchronizer_class):
+        """
+        同期リスト(local_map)にないリモートファイルが削除されること。
+        """
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/keep.mp3",
+                file_name="keep.mp3",
+                relative_path="/Album/keep.mp3"
+            )
+        ]
+        
+        settings = {"target_exts": "mp3"}
+        sync = mock_synchronizer_class(tracks, [], settings)
+        # リモートに2つのファイルがあり、1つは同期リストにない
+        # traverse_remoteの動作をシミュレート
+        def mock_ls_remote_impl(rel_path):
+            if rel_path == "":  # Root
+                return [("Album", True)]
+            elif rel_path == "Album":
+                return [("keep.mp3", False), ("old.mp3", False)]
+            else:
+                return []
+        
+        sync._ls_remote_mock.side_effect = mock_ls_remote_impl
+        
+        sync.synchronize()
+        
+        # old.mp3が削除されること
+        sync._rm_remote_mock.assert_called_once_with("Album/old.mp3")
+    
+    def test_synchronize_filter_by_extension(self, mock_synchronizer_class):
+        """
+        target_exts設定に合致しないリモートファイルは削除されないこと。
+        """
+        tracks = []  # 同期リストは空
+        
+        settings = {"target_exts": "mp3,m4a"}  # mp3とm4aのみ対象
+        sync = mock_synchronizer_class(tracks, [], settings)
+        # リモートに様々な拡張子のファイルがある
+        sync._ls_remote_mock.return_value = [
+            ("song.mp3", False),   # target_exts に含まれる -> 削除
+            ("video.mp4", False),  # target_exts に含まれない -> 削除されない
+            ("audio.m4a", False),  # target_exts に含まれる -> 削除
+            ("text.txt", False)    # target_exts に含まれない -> 削除されない
+        ]
+        
+        sync.synchronize()
+        
+        # mp3とm4aのみ削除される
+        assert sync._rm_remote_mock.call_count == 2
+        deleted_files = [call.args[0] for call in sync._rm_remote_mock.call_args_list]
+        assert "song.mp3" in deleted_files
+        assert "audio.m4a" in deleted_files
+        assert "video.mp4" not in deleted_files
+        assert "text.txt" not in deleted_files
+    
+    def test_synchronize_create_directories(self, mock_synchronizer_class):
+        """
+        ファイルコピー前にmkdir_p_remoteが呼ばれること。
+        """
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/song.mp3",
+                file_name="song.mp3",
+                relative_path="/Artist/Album/song.mp3"
+            )
+        ]
+        
+        sync = mock_synchronizer_class(tracks, [], {})
+        sync._ls_remote_mock.return_value = []  # リモートは空
+        
+        sync.synchronize()
+        
+        # mkdir_p_remoteが親ディレクトリで呼ばれる
+        sync._mkdir_p_remote_mock.assert_called_once_with("Artist/Album")
+    
+    def test_synchronize_put_playlist(self, mock_synchronizer_class):
+        """
+        synchronize終了後にput_playlist_fileが呼ばれること。
+        """
+        playlists = [{"name": "Test", "content": "#EXTM3U\n"}]
+        
+        sync = mock_synchronizer_class([], playlists, {})
+        sync.synchronize()
+        
+        # put_playlist_fileが呼ばれる
+        sync._put_playlist_file_mock.assert_called_once()
+    
+    def test_synchronize_filter_sync_false(self, mock_synchronizer_class):
+        """
+        sync=Falseのトラックはコピーされず、リモートに存在すれば削除されること。
+        """
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/keep.mp3",
+                file_name="keep.mp3",
+                relative_path="/keep.mp3"
+            ),
+            SimpleNamespace(
+                sync=False,  # sync=Falseのトラック
+                file_path="/local/ignore.mp3",
+                file_name="ignore.mp3",
+                relative_path="/ignore.mp3"
+            )
+        ]
+        
+        settings = {"target_exts": "mp3"}
+        sync = mock_synchronizer_class(tracks, [], settings)
+        # リモートに両方のファイルが存在
+        sync._ls_remote_mock.return_value = [
+            ("keep.mp3", False),
+            ("ignore.mp3", False)
+        ]
+        
+        sync.synchronize()
+        
+        # keep.mp3はコピーされない(既に存在するため)
+        # ignore.mp3は削除される(sync=Falseで同期リストにないため)
+        sync._cp_mock.assert_not_called()
+        sync._rm_remote_mock.assert_called_once_with("ignore.mp3")
+    
+    def test_synchronize_normalize_paths(self, mock_synchronizer_class):
+        """
+        Windows形式のパス(\\)が正規化されてリモート区切り文字(/)になること。
+        """
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path=r"C:\Music\song.mp3",
+                file_name="song.mp3",
+                relative_path=r"\Artist\Album\song.mp3"  # Windows形式
+            )
+        ]
+        
+        sync = mock_synchronizer_class(tracks, [], {})
+        sync._ls_remote_mock.return_value = []
+        
+        sync.synchronize()
+        
+        # cpが正規化されたパスで呼ばれる
+        sync._cp_mock.assert_called_once()
+        called_args = sync._cp_mock.call_args[0]
+        assert called_args[1] == "Artist/Album/song.mp3"  # \が/に変換される
+    
+    def test_synchronize_empty_tracks(self, mock_synchronizer_class):
+        """
+        トラックリストが空でもクラッシュせず、プレイリストのみ同期されること。
+        """
+        playlists = [{"name": "Empty", "content": "#EXTM3U\n"}]
+        
+        sync = mock_synchronizer_class([], playlists, {})
+        sync.synchronize()
+        
+        # cpもrm_remoteも呼ばれない
+        sync._cp_mock.assert_not_called()
+        sync._rm_remote_mock.assert_not_called()
+        # プレイリストは同期される
+        sync._put_playlist_file_mock.assert_called_once()
+    
+    def test_synchronize_remote_scan_failure(self, mock_synchronizer_class):
+        """
+        ls_remoteがFileNotFoundErrorを投げても処理が継続すること。
+        """
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/new.mp3",
+                file_name="new.mp3",
+                relative_path="/new.mp3"
+            )
+        ]
+        
+        sync = mock_synchronizer_class(tracks, [], {})
+        # ls_remoteがFileNotFoundErrorを投げる
+        sync._ls_remote_mock.side_effect = FileNotFoundError("Remote not found")
+        
+        # クラッシュせずに完了すること
+        sync.synchronize()
+        
+        # リモートファイルが取得できないため、全てのファイルがコピーされる
+        sync._cp_mock.assert_called_once_with("/local/new.mp3", "new.mp3")
+        # 削除は行われない(remote_filesが空のため)
+        sync._rm_remote_mock.assert_not_called()
