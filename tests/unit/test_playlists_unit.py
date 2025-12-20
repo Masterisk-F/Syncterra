@@ -122,6 +122,15 @@ class TestGetPlaylist:
         mock_track.track.title = "Track 1"
         mock_track.track.artist = "Artist 1"
         mock_track.track.file_name = "track1.mp3"
+        # Extended fields
+        mock_track.track.album = "Album 1"
+        mock_track.track.album_artist = "Album Artist 1"
+        mock_track.track.composer = "Composer 1"
+        mock_track.track.track_num = "1"
+        mock_track.track.duration = 180
+        mock_track.track.codec = "mp3"
+        mock_track.track.added_date = None
+        mock_track.track.last_modified = None
 
         mock_playlist = MagicMock()
         mock_playlist.id = 1
