@@ -3,12 +3,7 @@ from unittest.mock import MagicMock, patch
 from backend.core.scanner import ScannerService
 
 # Mock mutagen
-import sys
 
-sys.modules["mutagen"] = MagicMock()
-sys.modules["mutagen.easyid3"] = MagicMock()
-sys.modules["mutagen.mp4"] = MagicMock()
-sys.modules["mutagen.id3"] = MagicMock()
 
 
 @pytest.mark.asyncio
