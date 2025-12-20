@@ -4,11 +4,13 @@ from datetime import datetime
 
 Base = declarative_base()
 
+
 class Setting(Base):
     __tablename__ = "settings"
 
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
+
 
 class Track(Base):
     __tablename__ = "tracks"
@@ -33,14 +35,18 @@ class Track(Base):
     # Relationships
     playlist_tracks = relationship("PlaylistTrack", back_populates="track")
 
+
 class Playlist(Base):
     __tablename__ = "playlists"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
-    
+
     # Relationships
-    tracks = relationship("PlaylistTrack", back_populates="playlist", cascade="all, delete-orphan")
+    tracks = relationship(
+        "PlaylistTrack", back_populates="playlist", cascade="all, delete-orphan"
+    )
+
 
 class PlaylistTrack(Base):
     __tablename__ = "playlist_tracks"
@@ -48,7 +54,7 @@ class PlaylistTrack(Base):
     id = Column(Integer, primary_key=True, index=True)
     playlist_id = Column(Integer, ForeignKey("playlists.id"), nullable=False)
     track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
-    order = Column(Integer, nullable=False) # Order of the track in the playlist
+    order = Column(Integer, nullable=False)  # Order of the track in the playlist
 
     # Relationships
     playlist = relationship("Playlist", back_populates="tracks")

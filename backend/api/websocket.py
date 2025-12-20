@@ -3,6 +3,7 @@ from typing import List
 
 router = APIRouter(prefix="/ws", tags=["websocket"])
 
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -18,7 +19,9 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_text(message)
 
+
 manager = ConnectionManager()
+
 
 @router.websocket("/status")
 async def websocket_endpoint(websocket: WebSocket):
@@ -26,7 +29,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Just keep connection open and echo or wait
-             data = await websocket.receive_text()
-             # await manager.broadcast(f"Client says: {data}")
+            await websocket.receive_text()
+            # await manager.broadcast(f"Client says: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)

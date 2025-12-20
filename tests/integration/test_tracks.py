@@ -80,7 +80,7 @@ async def test_update_track(client, seed_tracks):
     response = await client.get("/api/tracks")
     data = response.json()
     updated = next(x for x in data if x["id"] == t1.id)
-    assert updated["sync"] == True
+    assert updated["sync"]
 
 
 @pytest.mark.asyncio
@@ -93,4 +93,4 @@ async def test_batch_update(client, seed_tracks):
     data = response.json()
     for item in data:
         if item["id"] in ids:
-            assert item["sync"] == True
+            assert item["sync"]

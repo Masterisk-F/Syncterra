@@ -11,3 +11,4 @@ wheels/
 
 Log.log
 *.db
+backend.log
