@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef } from 'ag-grid-community';
+import type { ColDef, ValueFormatterParams, GridApi, GridReadyEvent, IRowNode, ICellRendererParams } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text, Badge } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -23,6 +23,24 @@ const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+// 日時フォーマット (YYYY-MM-DD HH:mm:ss)
+const formatDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+    } catch {
+        return dateStr;
+    }
 };
 
 export default function AudioListPage() {
@@ -55,24 +73,24 @@ export default function AudioListPage() {
             const reloadTracks = async () => {
                 try {
                     const tracks = await getTracks();
-                    const frontendTracks: Track[] = tracks.map(t => ({
+                    const frontendTracks: Track[] = tracks.map((t) => ({
                         id: t.id,
                         msg: t.msg ?? '',
                         sync: t.sync,
                         title: t.title || '',
                         artist: t.artist || '',
-                        album_artist: '',
-                        composer: '',
+                        album_artist: t.album_artist || '',
+                        composer: t.composer || '',
                         album: t.album || '',
-                        track_num: '',
-                        length: 0,
+                        track_num: t.track_num || '',
+                        length: t.duration || 0,
                         file_name: t.file_name,
                         file_path: t.file_path,
                         file_path_to_relative: t.relative_path || '',
-                        codec: '',
-                        size: 0,
-                        added_date: '',
-                        update_date: '',
+                        codec: t.codec || '',
+                        size: 0, // Removed from plan
+                        added_date: t.added_date || '',
+                        update_date: t.last_modified || '',
                     }));
                     setRowData(frontendTracks);
                     setIsScanning(false);
@@ -99,24 +117,24 @@ export default function AudioListPage() {
             try {
                 const tracks = await getTracks();
                 // APIのTrack型をフロント型に変換（必要に応じて）
-                const frontendTracks: Track[] = tracks.map(t => ({
+                const frontendTracks: Track[] = tracks.map((t) => ({ // Cast to any to access new fields if not in generated type
                     id: t.id,
                     msg: t.msg ?? '',
                     sync: t.sync,
                     title: t.title || '',
                     artist: t.artist || '',
-                    album_artist: '',
-                    composer: '',
+                    album_artist: t.album_artist || '',
+                    composer: t.composer || '',
                     album: t.album || '',
-                    track_num: '',
-                    length: 0,
+                    track_num: t.track_num || '',
+                    length: t.duration || 0,
                     file_name: t.file_name,
                     file_path: t.file_path,
                     file_path_to_relative: t.relative_path || '',
-                    codec: '',
-                    size: 0,
-                    added_date: '',
-                    update_date: '',
+                    codec: t.codec || '',
+                    size: 0, // Removed from plan
+                    added_date: t.added_date || '',
+                    update_date: t.last_modified || '',
                 }));
                 setRowData(frontendTracks);
             } catch (error) {
@@ -217,14 +235,14 @@ export default function AudioListPage() {
     };
 
     // Since we need gridApi for selection, let's refactor slightly to store it
-    const [gridApi, setGridApi] = useState<any>(null);
+    const [gridApi, setGridApi] = useState<GridApi | null>(null);
 
-    const onGridReady = (params: any) => {
+    const onGridReady = (params: GridReadyEvent) => {
         setGridApi(params.api);
     };
 
     // Batch Paste Handler (Ctrl+V)
-    const handleContainerPaste = async (_e: React.ClipboardEvent) => {
+    const handleContainerPaste = async () => {
         if (!gridApi) return;
 
         const clipboardText = await navigator.clipboard.readText();
@@ -241,7 +259,7 @@ export default function AudioListPage() {
         if (selectedNodes.length === 0) return;
 
         const updatedRows = rowData.map(row => {
-            const isSelected = selectedNodes.some((node: any) => node.data.id === row.id);
+            const isSelected = selectedNodes.some((node: IRowNode<Track>) => node.data && node.data.id === row.id);
             if (isSelected) {
                 return { ...row, sync: newValue };
             }
@@ -269,7 +287,7 @@ export default function AudioListPage() {
             headerName: '同期',
             width: 70,
             editable: false,
-            cellRenderer: (params: any) => {
+            cellRenderer: (params: ICellRendererParams) => {
                 return (
                     <div
                         style={{
@@ -338,7 +356,7 @@ export default function AudioListPage() {
             field: 'length',
             headerName: '長さ',
             width: 90,
-            valueFormatter: (params) => formatDuration(params.value),
+            valueFormatter: (params: ValueFormatterParams) => formatDuration(params.value),
             cellStyle: { textAlign: 'right' },
         },
         {
@@ -368,7 +386,7 @@ export default function AudioListPage() {
             field: 'size',
             headerName: 'サイズ',
             width: 110,
-            valueFormatter: (params) => formatFileSize(params.value),
+            valueFormatter: (params: ValueFormatterParams) => formatFileSize(params.value),
             cellStyle: { textAlign: 'right' },
         },
         {
@@ -376,12 +394,14 @@ export default function AudioListPage() {
             headerName: '追加日時',
             width: 170,
             sortable: true,
+            valueFormatter: (params: ValueFormatterParams) => formatDate(params.value),
         },
         {
             field: 'update_date',
             headerName: '更新日時',
             width: 170,
             sortable: true,
+            valueFormatter: (params: ValueFormatterParams) => formatDate(params.value),
         },
     ], []);
 

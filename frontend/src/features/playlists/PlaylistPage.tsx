@@ -16,7 +16,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, GridApi, GridReadyEvent, IRowNode, ICellRendererParams } from 'ag-grid-community';
+import type { ColDef, GridApi, GridReadyEvent, IRowNode, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import { useMantineColorScheme } from '@mantine/core';
 import {
@@ -41,6 +41,31 @@ import type { Track } from '../../api/types';
 
 // AG Grid モジュール登録
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+// 再生時間を分:秒表示にフォーマット
+const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+// 日時フォーマット (YYYY-MM-DD HH:mm:ss)
+const formatDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+    } catch {
+        return dateStr;
+    }
+};
 
 export default function PlaylistPage() {
     const { colorScheme } = useMantineColorScheme();
@@ -210,6 +235,14 @@ export default function PlaylistPage() {
                     title: track.title,
                     artist: track.artist,
                     file_name: track.file_name,
+                    album: track.album,
+                    album_artist: track.album_artist,
+                    composer: track.composer,
+                    track_num: track.track_num,
+                    duration: track.duration,
+                    codec: track.codec,
+                    added_date: track.added_date,
+                    last_modified: track.last_modified
                 });
             }
         });
@@ -299,11 +332,38 @@ export default function PlaylistPage() {
             sortable: true,
         },
         {
+            field: 'album_artist',
+            headerName: 'アルバムアーティスト',
+            width: 150,
+            filter: true,
+            sortable: true,
+        },
+        {
+            field: 'composer',
+            headerName: '作曲者',
+            width: 150,
+            filter: true,
+            sortable: true,
+        },
+        {
             field: 'album',
             headerName: 'アルバム',
             width: 200,
             filter: true,
             sortable: true,
+        },
+        {
+            field: 'track_num',
+            headerName: '#',
+            width: 80,
+            cellStyle: { textAlign: 'center' },
+        },
+        {
+            field: 'duration',
+            headerName: '長さ',
+            width: 90,
+            valueFormatter: (params: ValueFormatterParams) => formatDuration(params.value),
+            cellStyle: { textAlign: 'right' },
         },
         {
             field: 'file_name',
@@ -318,9 +378,24 @@ export default function PlaylistPage() {
             filter: true,
         },
         {
-            field: 'relative_path',
-            headerName: '同期先相対パス',
-            width: 250,
+            field: 'codec',
+            headerName: 'コーデック',
+            width: 100,
+            filter: true,
+        },
+        {
+            field: 'added_date',
+            headerName: '追加日時',
+            width: 170,
+            sortable: true,
+            valueFormatter: (params: ValueFormatterParams) => formatDate(params.value),
+        },
+        {
+            field: 'last_modified',
+            headerName: '更新日時',
+            width: 170,
+            sortable: true,
+            valueFormatter: (params: ValueFormatterParams) => formatDate(params.value),
         },
     ], []);
 

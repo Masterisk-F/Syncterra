@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 from ..db.database import get_db
 from ..db.models import Track
 
@@ -19,6 +20,15 @@ class TrackModel(BaseModel):
     sync: bool
     relative_path: Optional[str]
     msg: Optional[str]
+
+    # Missing fields
+    duration: Optional[int] = None
+    codec: Optional[str] = None
+    track_num: Optional[str] = None
+    album_artist: Optional[str] = None
+    composer: Optional[str] = None
+    added_date: Optional[datetime] = None
+    last_modified: Optional[datetime] = None
 
     class Config:
         from_attributes = True

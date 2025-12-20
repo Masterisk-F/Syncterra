@@ -15,6 +15,14 @@ export interface Track {
     sync: boolean;
     relative_path: string | null;
     msg: string | null;
+    // New fields
+    album_artist: string | null;
+    composer: string | null;
+    track_num: string | null;
+    duration: number | null;
+    codec: string | null;
+    added_date: string | null;
+    last_modified: string | null;
 }
 
 export interface TrackUpdate {
@@ -50,6 +58,15 @@ export interface TrackInPlaylist {
     title: string | null;
     artist: string | null;
     file_name: string;
+    // New fields
+    album: string | null;
+    album_artist: string | null;
+    composer: string | null;
+    track_num: string | null;
+    duration: number | null;
+    codec: string | null;
+    added_date: string | null; // API sends string (ISO format)
+    last_modified: string | null;
 }
 
 export interface Playlist {

@@ -283,6 +283,13 @@ class ScannerService:
                 except Exception:
                     pass
 
+            # Ensure duration is integer
+            if data["duration"] is not None:
+                try:
+                    data["duration"] = int(data["duration"])
+                except (ValueError, TypeError):
+                    data["duration"] = None
+
             return data
         except Exception as e:
             logger.error(f"Error parsing metadata for {filepath}: {e}")

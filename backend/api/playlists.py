@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 from ..db.database import get_db
 from ..db.models import Playlist, PlaylistTrack, Track
 
@@ -12,8 +13,10 @@ router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
 # Pydanticモデル定義
 
+
 class TrackInPlaylist(BaseModel):
     """プレイリスト内の曲情報"""
+
     id: int
     track_id: int
     order: int
@@ -21,12 +24,23 @@ class TrackInPlaylist(BaseModel):
     artist: Optional[str]
     file_name: str
 
+    # Extended metadata for UI
+    album: Optional[str] = None
+    album_artist: Optional[str] = None
+    composer: Optional[str] = None
+    track_num: Optional[str] = None
+    duration: Optional[int] = None
+    codec: Optional[str] = None
+    added_date: Optional[datetime] = None
+    last_modified: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 
 
 class PlaylistModel(BaseModel):
     """プレイリストモデル（レスポンス用）"""
+
     id: int
     name: str
     tracks: List[TrackInPlaylist] = []
@@ -37,20 +51,24 @@ class PlaylistModel(BaseModel):
 
 class PlaylistCreate(BaseModel):
     """プレイリスト作成リクエスト"""
+
     name: str
 
 
 class PlaylistUpdate(BaseModel):
     """プレイリスト更新リクエスト"""
+
     name: Optional[str] = None
 
 
 class PlaylistTracksUpdate(BaseModel):
     """プレイリスト内の曲の一括更新リクエスト"""
+
     track_ids: List[int]
 
 
 # APIエンドポイント
+
 
 @router.get("", response_model=List[PlaylistModel])
 async def get_playlists(db: AsyncSession = Depends(get_db)):
@@ -61,7 +79,7 @@ async def get_playlists(db: AsyncSession = Depends(get_db)):
         )
     )
     playlists = result.scalars().unique().all()
-    
+
     # レスポンス用にデータを整形
     response = []
     for playlist in playlists:
@@ -69,20 +87,29 @@ async def get_playlists(db: AsyncSession = Depends(get_db)):
         # order順にソート
         sorted_tracks = sorted(playlist.tracks, key=lambda x: x.order)
         for pt in sorted_tracks:
-            tracks_data.append(TrackInPlaylist(
-                id=pt.id,
-                track_id=pt.track_id,
-                order=pt.order,
-                title=pt.track.title,
-                artist=pt.track.artist,
-                file_name=pt.track.file_name
-            ))
-        response.append(PlaylistModel(
-            id=playlist.id,
-            name=playlist.name,
-            tracks=tracks_data
-        ))
-    
+            tracks_data.append(
+                TrackInPlaylist(
+                    id=pt.id,
+                    track_id=pt.track_id,
+                    order=pt.order,
+                    title=pt.track.title,
+                    artist=pt.track.artist,
+                    file_name=pt.track.file_name,
+                    # Extended fields
+                    album=pt.track.album,
+                    album_artist=pt.track.album_artist,
+                    composer=pt.track.composer,
+                    track_num=pt.track.track_num,
+                    duration=pt.track.duration,
+                    codec=pt.track.codec,
+                    added_date=pt.track.added_date,
+                    last_modified=pt.track.last_modified,
+                )
+            )
+        response.append(
+            PlaylistModel(id=playlist.id, name=playlist.name, tracks=tracks_data)
+        )
+
     return response
 
 
@@ -97,14 +124,16 @@ async def create_playlist(
     )
     existing = result.scalars().first()
     if existing:
-        raise HTTPException(status_code=400, detail="このプレイリスト名は既に使用されています")
-    
+        raise HTTPException(
+            status_code=400, detail="このプレイリスト名は既に使用されています"
+        )
+
     # 新規作成
     new_playlist = Playlist(name=playlist_data.name)
     db.add(new_playlist)
     await db.commit()
     await db.refresh(new_playlist)
-    
+
     return PlaylistModel(id=new_playlist.id, name=new_playlist.name, tracks=[])
 
 
@@ -117,23 +146,34 @@ async def get_playlist(playlist_id: int, db: AsyncSession = Depends(get_db)):
         .options(joinedload(Playlist.tracks).joinedload(PlaylistTrack.track))
     )
     playlist = result.scalars().first()
-    
+
     if not playlist:
         raise HTTPException(status_code=404, detail="プレイリストが見つかりません")
-    
+
     # レスポンス用にデータを整形
     tracks_data = []
     sorted_tracks = sorted(playlist.tracks, key=lambda x: x.order)
     for pt in sorted_tracks:
-        tracks_data.append(TrackInPlaylist(
-            id=pt.id,
-            track_id=pt.track_id,
-            order=pt.order,
-            title=pt.track.title,
-            artist=pt.track.artist,
-            file_name=pt.track.file_name
-        ))
-    
+        tracks_data.append(
+            TrackInPlaylist(
+                id=pt.id,
+                track_id=pt.track_id,
+                order=pt.order,
+                title=pt.track.title,
+                artist=pt.track.artist,
+                file_name=pt.track.file_name,
+                # Extended fields
+                album=pt.track.album,
+                album_artist=pt.track.album_artist,
+                composer=pt.track.composer,
+                track_num=pt.track.track_num,
+                duration=pt.track.duration,
+                codec=pt.track.codec,
+                added_date=pt.track.added_date,
+                last_modified=pt.track.last_modified,
+            )
+        )
+
     return PlaylistModel(id=playlist.id, name=playlist.name, tracks=tracks_data)
 
 
@@ -144,16 +184,15 @@ async def update_playlist(
     """プレイリスト名を更新"""
     result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
     playlist = result.scalars().first()
-    
+
     if not playlist:
         raise HTTPException(status_code=404, detail="プレイリストが見つかりません")
-    
+
     if update_data.name is not None:
         # 重複チェック（自分自身以外）
         result = await db.execute(
             select(Playlist).where(
-                Playlist.name == update_data.name,
-                Playlist.id != playlist_id
+                Playlist.name == update_data.name, Playlist.id != playlist_id
             )
         )
         existing = result.scalars().first()
@@ -161,9 +200,9 @@ async def update_playlist(
             raise HTTPException(
                 status_code=400, detail="このプレイリスト名は既に使用されています"
             )
-        
+
         playlist.name = update_data.name
-    
+
     await db.commit()
     return {"status": "ok", "id": playlist_id}
 
@@ -173,10 +212,10 @@ async def delete_playlist(playlist_id: int, db: AsyncSession = Depends(get_db)):
     """プレイリストを削除"""
     result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
     playlist = result.scalars().first()
-    
+
     if not playlist:
         raise HTTPException(status_code=404, detail="プレイリストが見つかりません")
-    
+
     await db.delete(playlist)
     await db.commit()
     return {"status": "ok", "id": playlist_id}
@@ -192,10 +231,10 @@ async def update_playlist_tracks(
     # プレイリストの存在確認
     result = await db.execute(select(Playlist).where(Playlist.id == playlist_id))
     playlist = result.scalars().first()
-    
+
     if not playlist:
         raise HTTPException(status_code=404, detail="プレイリストが見つかりません")
-    
+
     # 指定されたtrack_idが全て存在するか確認
     if tracks_update.track_ids:
         result = await db.execute(
@@ -203,14 +242,13 @@ async def update_playlist_tracks(
         )
         existing_tracks = result.scalars().all()
         existing_track_ids = {track.id for track in existing_tracks}
-        
+
         invalid_ids = set(tracks_update.track_ids) - existing_track_ids
         if invalid_ids:
             raise HTTPException(
-                status_code=400,
-                detail=f"存在しないトラックID: {list(invalid_ids)}"
+                status_code=400, detail=f"存在しないトラックID: {list(invalid_ids)}"
             )
-    
+
     # 既存のプレイリストトラックを全て削除
     result = await db.execute(
         select(PlaylistTrack).where(PlaylistTrack.playlist_id == playlist_id)
@@ -218,13 +256,15 @@ async def update_playlist_tracks(
     existing_playlist_tracks = result.scalars().all()
     for pt in existing_playlist_tracks:
         await db.delete(pt)
-    
+
     # 新しいプレイリストトラックを追加（順序を保持）
     for order, track_id in enumerate(tracks_update.track_ids):
-        new_pt = PlaylistTrack(
-            playlist_id=playlist_id, track_id=track_id, order=order
-        )
+        new_pt = PlaylistTrack(playlist_id=playlist_id, track_id=track_id, order=order)
         db.add(new_pt)
-    
+
     await db.commit()
-    return {"status": "ok", "playlist_id": playlist_id, "track_count": len(tracks_update.track_ids)}
+    return {
+        "status": "ok",
+        "playlist_id": playlist_id,
+        "track_count": len(tracks_update.track_ids),
+    }
