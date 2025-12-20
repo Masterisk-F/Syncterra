@@ -16,7 +16,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef } from 'ag-grid-community';
+import type { ColDef, GridApi, GridReadyEvent, IRowNode, ICellRendererParams } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import { useMantineColorScheme } from '@mantine/core';
 import {
@@ -53,7 +53,7 @@ export default function PlaylistPage() {
     const [editedTracks, setEditedTracks] = useState<TrackInPlaylist[]>([]);
     const [addTrackModalOpen, setAddTrackModalOpen] = useState(false);
     const [allTracks, setAllTracks] = useState<Track[]>([]);
-    const [gridApi, setGridApi] = useState<any>(null);
+    const [gridApi, setGridApi] = useState<GridApi | null>(null);
 
     // プレイリスト一覧を読み込み
     const loadPlaylists = async () => {
@@ -108,7 +108,7 @@ export default function PlaylistPage() {
             setNewPlaylistName('');
             setCreateModalOpen(false);
             loadPlaylists();
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
             console.error('Failed to create playlist:', error);
             const message = error.response?.data?.detail || 'プレイリストの作成に失敗しました';
             notifications.show({
@@ -169,7 +169,7 @@ export default function PlaylistPage() {
             });
             setEditModalOpen(false);
             loadPlaylists();
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
             const message = error.response?.data?.detail || 'プレイリストの更新に失敗しました';
             notifications.show({
                 title: 'エラー',
@@ -198,8 +198,9 @@ export default function PlaylistPage() {
         const newTracks: TrackInPlaylist[] = [];
         const existingTrackIds = new Set(editedTracks.map(t => t.track_id));
 
-        selectedNodes.forEach((node: any) => {
-            const track = node.data as Track;
+        selectedNodes.forEach((node: IRowNode<Track>) => {
+            const track = node.data;
+            if (!track) return;
             // 既に追加済みかチェック
             if (!existingTrackIds.has(track.id)) {
                 newTracks.push({
@@ -240,7 +241,7 @@ export default function PlaylistPage() {
     };
 
     // AG Grid準備完了
-    const onGridReady = (params: any) => {
+    const onGridReady = (params: GridReadyEvent) => {
         setGridApi(params.api);
     };
 
@@ -259,7 +260,7 @@ export default function PlaylistPage() {
             headerName: '同期',
             width: 70,
             editable: false,
-            cellRenderer: (params: any) => {
+            cellRenderer: (params: ICellRendererParams) => {
                 return (
                     <div
                         style={{
@@ -280,6 +281,7 @@ export default function PlaylistPage() {
                     </div>
                 );
             },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as any,
         },
         {

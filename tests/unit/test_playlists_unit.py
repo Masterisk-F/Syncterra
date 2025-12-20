@@ -3,8 +3,9 @@
 
 各APIエンドポイントの基本動作、バリデーション、境界値をテスト
 """
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from fastapi import HTTPException
 from backend.api.playlists import (
     get_playlists,
@@ -74,6 +75,7 @@ class TestCreatePlaylist:
         # refresh後のnew_playlist.idが設定されるようにモック
         async def mock_refresh(obj):
             obj.id = 1
+
         mock_db.refresh.side_effect = mock_refresh
 
         playlist_data = PlaylistCreate(name="New Playlist")
@@ -103,8 +105,6 @@ class TestCreatePlaylist:
 
         assert exc_info.value.status_code == 400
         assert "既に使用されています" in exc_info.value.detail
-
-
 
 
 class TestGetPlaylist:
@@ -176,7 +176,9 @@ class TestUpdatePlaylist:
         mock_db.execute.side_effect = [mock_result1, mock_result2]
 
         update_data = PlaylistUpdate(name="New Name")
-        result = await update_playlist(playlist_id=1, update_data=update_data, db=mock_db)
+        result = await update_playlist(
+            playlist_id=1, update_data=update_data, db=mock_db
+        )
 
         assert result["status"] == "ok"
         assert mock_playlist.name == "New Name"

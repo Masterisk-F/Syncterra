@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Setting, Track, TrackUpdate, Playlist, PlaylistCreate, PlaylistUpdate, PlaylistTracksUpdate } from './types';
+export type { Setting, Track, TrackUpdate, Playlist, PlaylistCreate, PlaylistUpdate, PlaylistTracksUpdate } from './types';
 
 // Settings API
 
