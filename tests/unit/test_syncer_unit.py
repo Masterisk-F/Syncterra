@@ -1,11 +1,9 @@
 from types import SimpleNamespace
 import pytest
 import logging
-import os
 from unittest.mock import MagicMock, patch, mock_open, call
 from backend.core.syncer import make_m3u8, FtpSynchronizer, RsyncSynchronizer
 from ftplib import error_perm
-import subprocess
 
 # --- make_m3u8 Tests ---
 
