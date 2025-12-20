@@ -1,7 +1,11 @@
 [project]
 name = "audiosync"
 version = "0.1.0"
-description = "Add your description here"
+description = "Audio file synchronization tool for Android devices"
+license = { text = "GPL-3.0-or-later" }
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+]
 dependencies = [
     "mutagen>=1.47.0",
     "openpyxl>=3.1.5",

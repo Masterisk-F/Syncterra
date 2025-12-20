@@ -96,4 +96,6 @@ npm run dev
 
 ## ライセンス (License)
 
-未定
+本ソフトウェアは **GPL v3 (GNU General Public License v3)** の下で公開されています。
+詳細については [LICENSE](./LICENSE) ファイルを参照してください。
+`mutagen` (GPL v2+) などのGPLライブラリを使用しているため、本ソフトウェアの派生物を配布する場合はGPL互換ライセンスを採用する必要があります。
