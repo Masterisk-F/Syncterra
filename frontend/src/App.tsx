@@ -1,10 +1,11 @@
 import { AppShell, Burger, Group, NavLink, Title, useMantineColorScheme, ActionIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconMusic, IconSettings, IconSun, IconMoon } from '@tabler/icons-react';
+import { IconMusic, IconSettings, IconSun, IconMoon, IconPlaylist } from '@tabler/icons-react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
 import SettingsPage from './features/settings/SettingsPage';
 import AudioListPage from './features/audio-list/AudioListPage';
+import PlaylistPage from './features/playlists/PlaylistPage';
 
 export default function App() {
   const [opened, { toggle }] = useDisclosure();
@@ -46,6 +47,12 @@ export default function App() {
           onClick={() => navigate('/')}
         />
         <NavLink
+          label={opened ? "Playlists" : null}
+          leftSection={<IconPlaylist size="1.5rem" stroke={1.5} />}
+          active={location.pathname === '/playlists'}
+          onClick={() => navigate('/playlists')}
+        />
+        <NavLink
           label={opened ? "Settings" : null}
           leftSection={<IconSettings size="1.5rem" stroke={1.5} />}
           active={location.pathname === '/settings'}
@@ -56,6 +63,7 @@ export default function App() {
       <AppShell.Main>
         <Routes>
           <Route path="/" element={<AudioListPage />} />
+          <Route path="/playlists" element={<PlaylistPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </AppShell.Main>

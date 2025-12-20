@@ -40,3 +40,32 @@ export interface ApiError {
     }[];
     message?: string;
 }
+
+// プレイリスト関連の型定義
+
+export interface TrackInPlaylist {
+    id: number;
+    track_id: number;
+    order: number;
+    title: string | null;
+    artist: string | null;
+    file_name: string;
+}
+
+export interface Playlist {
+    id: number;
+    name: string;
+    tracks: TrackInPlaylist[];
+}
+
+export interface PlaylistCreate {
+    name: string;
+}
+
+export interface PlaylistUpdate {
+    name?: string | null;
+}
+
+export interface PlaylistTracksUpdate {
+    track_ids: number[];
+}

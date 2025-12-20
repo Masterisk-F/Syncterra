@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Setting, Track, TrackUpdate } from './types';
+import type { Setting, Track, TrackUpdate, Playlist, PlaylistCreate, PlaylistUpdate, PlaylistTracksUpdate } from './types';
 
 // Settings API
 
@@ -35,4 +35,33 @@ export const scanFiles = async (): Promise<void> => {
 
 export const syncFiles = async (): Promise<void> => {
     await apiClient.post('/api/sync');
+};
+
+// Playlists API
+
+export const getPlaylists = async (): Promise<Playlist[]> => {
+    const response = await apiClient.get<Playlist[]>('/api/playlists');
+    return response.data;
+};
+
+export const getPlaylist = async (id: number): Promise<Playlist> => {
+    const response = await apiClient.get<Playlist>(`/api/playlists/${id}`);
+    return response.data;
+};
+
+export const createPlaylist = async (data: PlaylistCreate): Promise<Playlist> => {
+    const response = await apiClient.post<Playlist>('/api/playlists', data);
+    return response.data;
+};
+
+export const updatePlaylist = async (id: number, data: PlaylistUpdate): Promise<void> => {
+    await apiClient.put(`/api/playlists/${id}`, data);
+};
+
+export const deletePlaylist = async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/playlists/${id}`);
+};
+
+export const updatePlaylistTracks = async (id: number, trackIds: number[]): Promise<void> => {
+    await apiClient.put(`/api/playlists/${id}/tracks`, { track_ids: trackIds });
 };

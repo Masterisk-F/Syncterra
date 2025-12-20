@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from .db.database import init_db
-from .api import settings, tracks, system, websocket
+from .api import settings, tracks, system, websocket, playlists
 import logging
 import os
 
@@ -38,3 +38,4 @@ app.include_router(settings.router)
 app.include_router(tracks.router)
 app.include_router(system.router)
 app.include_router(websocket.router)
+app.include_router(playlists.router)
