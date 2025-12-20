@@ -83,6 +83,7 @@ requests==2.32.3
     # via adbutils
 retry==0.9.2
     # via adbutils
+ruff==0.14.10
 sqlalchemy==2.0.44
     # via audiosync
 starlette==0.50.0

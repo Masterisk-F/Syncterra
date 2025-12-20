@@ -25,6 +25,7 @@ dev-dependencies = [
     "httpx>=0.28.1",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "ruff>=0.14.10",
 ]
 
 [tool.hatch.metadata]
@@ -32,3 +33,17 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/audiosync"]
+
+[tool.rye.scripts]
+test = { cmd = "pytest" }
+lint = { cmd = "ruff check ." }
+format = { cmd = "ruff format ." }
+check = { cmd = "sh -c 'ruff check . && ruff format --check . && pytest'" }
+
+[tool.pytest.ini_options]
+pythonpath = "."
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
