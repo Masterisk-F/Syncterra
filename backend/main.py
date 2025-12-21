@@ -15,7 +15,11 @@ app = FastAPI(title="AudioSync API")
 # CORS設定 - フロントエンドからのアクセスを許可
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost:8280",  # Docker frontend (production)
+        "http://localhost",       # Docker frontend (default port 80)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

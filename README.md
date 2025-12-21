@@ -88,6 +88,27 @@ npm run dev
 
 ブラウザで `http://localhost:5173` にアクセスしてください。
 
+## Dockerでの実行 (Usage with Docker)
+
+Docker Composeを使用して、セットアップ不要でアプリケーションを起動できます。
+
+### 1. 起動
+
+```bash
+docker-compose -f docker/docker-compose.yml up --build -d
+```
+
+### 2. アプリケーションへのアクセス
+
+*   **Web UI**: `http://localhost:8280`
+*   **API Docs**: `http://localhost:8000/docs`
+
+### 3. 注意事項
+
+*   **音楽フォルダ**: デフォルトではホストの `~/Music` が `/music` としてマウントされ、自動的にスキャン対象となります。変更する場合は `docker/docker-compose.yml` の `volumes` セクションを編集してください。
+*   **データベース**: `db/` ディレクトリに SQLite データベースが永続化されます。
+*   **ADB同期**: Androidデバイスを同期する場合は、`docker-compose.yml` 内の `network_mode: "host"` を有効にする必要があります。
+
 ## 技術スタック (Tech Stack)
 
 - **Backend**: Python, FastAPI, SQLAlchemy (SQLite), aiosqlite, Websockets
