@@ -232,6 +232,9 @@ class RsyncSynchronizer(AudioSynchronizer):
         host = self.settings.get("rsync_host")
         port = self.settings.get("rsync_port", "22")
         dest_path = self.settings.get("sync_dest", "~")
+        use_key = self.settings.get("rsync_use_key", "0") == "1"
+        key_path = self.settings.get("rsync_key_path")
+        password = self.settings.get("rsync_pass")
 
         # Generate include list
         include_list = set()
@@ -245,19 +248,13 @@ class RsyncSynchronizer(AudioSynchronizer):
             include_list.add(t.relative_path.replace("\\", "/"))
 
         fd, include_path = tempfile.mkstemp()
+        
         try:
             with open(include_path, "w") as f:
                 for p in include_list:
                     f.write(p + "\n")
 
-            # Roots to sync from?
-            # AudioSyncData had "include_dir".
-            # Here we have tracks with absolute paths. Rsync needs common root or src dirs.
-            # This is tricky if tracks are scattered.
-            # TODO: Current implementation assumes scan_paths from settings.
-            #       Better logic would be to determine source directories from track paths (absolute vs relative).
-            # Original: src_dir = [d.rstrip("/") for d in self.audio_sync_data.include_dir]
-            # We need to recover roots from settings?
+            # Get source directories from settings
             scan_paths_str = self.settings.get("scan_paths", "[]")
             import json
 
@@ -266,31 +263,67 @@ class RsyncSynchronizer(AudioSynchronizer):
             except Exception:
                 scan_paths = []
             if not scan_paths:
+                self.log("No scan paths configured")
                 return
 
             src_dirs = [s.rstrip(os.sep) for s in scan_paths]
 
-            cmd = [
+            # Build rsync command
+            cmd = []
+            
+            # hostが定義されている場合のみSSH認証を使用
+            if host:
+                # SSH認証方式の判定
+                if use_key:
+                    # SSH鍵認証
+                    if not key_path:
+                        self.log("SSH key authentication enabled but key path not configured")
+                        return
+                    if not os.path.exists(key_path):
+                        self.log(f"SSH key file not found: {key_path}")
+                        return
+                    self.log(f"Using SSH key authentication: {key_path}")
+                elif password:
+                    # パスワード認証（sshpassを使用）
+                    cmd = ["sshpass", "-p", password]
+                    self.log("Using password authentication")
+                else:
+                    self.log("No valid authentication method configured for SSH")
+                    return
+            
+            # rsyncコマンドの基本部分
+            cmd.extend([
                 "rsync",
                 "-avz",
                 "--delete-excluded",
                 "--include-from",
                 include_path,
                 "--exclude=*",
-            ]
+            ])
             cmd.extend(src_dirs)
 
-            if user and host:
-                cmd += ["-e", f"ssh -p {port}"]
-                remote = f"{user}@{host}:{dest_path}"
-            elif host:
-                cmd += ["-e", f"ssh -p {port}"]
-                remote = f"{host}:{dest_path}"
+            # リモート先の設定
+            if host:
+                # SSH経由でのリモート同期
+                ssh_opts = f"ssh -p {port}"
+                if use_key and key_path:
+                    ssh_opts += f" -i {key_path}"
+                
+                cmd.extend(["-e", ssh_opts])
+                
+                if user:
+                    remote = f"{user}@{host}:{dest_path}"
+                else:
+                    remote = f"{host}:{dest_path}"
             else:
-                remote = f"{dest_path}"
+                # ローカル同期
+                remote = dest_path
+            
             cmd.append(remote)
 
-            self.log(f"Running rsync: {' '.join(cmd)}")
+            # Log command without password
+            log_cmd = [c if c != password else '***' for c in cmd]
+            self.log(f"Running rsync: {' '.join(log_cmd)}")
 
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
@@ -301,12 +334,14 @@ class RsyncSynchronizer(AudioSynchronizer):
 
             if proc.returncode != 0:
                 self.log(f"Rsync failed with code {proc.returncode}")
+            else:
+                self.log("Rsync completed successfully")
 
         finally:
             os.close(fd)
             os.remove(include_path)
 
-        # Playlist sync (manual scp/rsync)
+        # Playlist sync
         self.put_playlist_file()
 
     # cp/rm/mkdir not used by main synchronize, but implemented for playlist
@@ -315,29 +350,58 @@ class RsyncSynchronizer(AudioSynchronizer):
         host = self.settings.get("rsync_host")
         port = self.settings.get("rsync_port", "22")
         dest_path = self.settings.get("sync_dest", "~")
+        use_key = self.settings.get("rsync_use_key", "0") == "1"
+        key_path = self.settings.get("rsync_key_path")
+        password = self.settings.get("rsync_pass")
 
-        cmd = [
-            "rsync",
-            "-avz",
-        ]
-        if user and host:
-            cmd += ["-e", f"ssh -p {port}"]
-            remote = f"{user}@{host}:{dest_path}"
-        elif host:
-            cmd += ["-e", f"ssh -p {port}"]
-            remote = f"{host}:{dest_path}"
+        # Build rsync command
+        cmd = []
+        
+        # hostが定義されている場合のみSSH認証を使用
+        if host:
+            if use_key:
+                # SSH鍵認証
+                if not key_path or not os.path.exists(key_path):
+                    self.log(f"SSH key not available: {key_path}")
+                    return
+            elif password:
+                # パスワード認証（sshpassを使用）
+                cmd = ["sshpass", "-p", password]
+        
+        # rsyncコマンドの基本部分
+        cmd.extend(["rsync", "-avz"])
+        
+        # リモート先の設定
+        if host:
+            # SSH経由でのリモート同期
+            ssh_opts = f"ssh -p {port}"
+            if use_key and key_path:
+                ssh_opts += f" -i {key_path}"
+            
+            cmd.extend(["-e", ssh_opts])
+            
+            if user:
+                remote = f"{user}@{host}:{dest_path}"
+            else:
+                remote = f"{host}:{dest_path}"
         else:
-            remote = f"{dest_path}"
+            # ローカル同期
+            remote = dest_path
+        
         remote_full = f"{remote}/{relative_path_to}".replace("//", "/")
+        cmd.extend([filepath_from, remote_full])
 
-        cmd += [filepath_from, remote_full]
-
-        self.log(f"Copying file (rsync): {' '.join(cmd)}")
+        # Log command without password
+        log_cmd = [c if c != password else '***' for c in cmd]
+        self.log(f"Copying file (rsync): {' '.join(log_cmd)}")
+        
         proc = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
         if proc.returncode != 0:
             self.log(f"Rsync cp failed: {proc.stderr}")
+        else:
+            self.log(f"File copied successfully: {relative_path_to}")
 
     def rm_remote(self, p):
         pass

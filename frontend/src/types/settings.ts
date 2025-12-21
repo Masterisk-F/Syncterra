@@ -19,7 +19,6 @@ export interface AppSettings {
     rsyncUser?: string;
     rsyncPassword?: string;
     rsyncUseKey?: boolean;
-    rsyncKeyPath?: string;
 
     // ADB settings
     adbDeviceId?: string;

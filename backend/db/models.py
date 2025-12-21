@@ -10,6 +10,7 @@ class Setting(Base):
 
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
+    # SQLiteでboolean値を扱う場合は、0/1の文字列として保存するのがベストプラクティス
 
 
 class Track(Base):

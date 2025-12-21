@@ -21,6 +21,7 @@ import { IconDeviceFloppy, IconDownload, IconInfoCircle } from '@tabler/icons-re
 import type { AppSettings, SyncMethod } from '../../types/settings';
 import { DEFAULT_SETTINGS } from '../../types/settings';
 import { getSettings, updateSetting } from '../../api';
+import { apiClient } from '../../api/client';
 import type { Setting } from '../../api/types';
 
 // バックエンドの設定キーマッピング
@@ -37,6 +38,8 @@ const SETTING_KEYS = {
     rsyncHost: 'rsync_host',
     rsyncPort: 'rsync_port',
     rsyncUser: 'rsync_user',
+    rsyncPassword: 'rsync_pass',
+    rsyncUseKey: 'rsync_use_key',
 } as const;
 
 // Setting[] を AppSettings に変換
@@ -71,6 +74,8 @@ const settingsArrayToApp = (settings: Setting[]): AppSettings => {
         rsyncHost: settingsMap.get(SETTING_KEYS.rsyncHost),
         rsyncPort: settingsMap.get(SETTING_KEYS.rsyncPort) ? Number(settingsMap.get(SETTING_KEYS.rsyncPort)) : 22,
         rsyncUser: settingsMap.get(SETTING_KEYS.rsyncUser),
+        rsyncPassword: settingsMap.get(SETTING_KEYS.rsyncPassword),
+        rsyncUseKey: settingsMap.get(SETTING_KEYS.rsyncUseKey) === '1',
     };
 };
 
@@ -117,6 +122,8 @@ export default function SettingsPage() {
             if (settings.rsyncHost) await updateSetting(SETTING_KEYS.rsyncHost, settings.rsyncHost);
             if (settings.rsyncPort) await updateSetting(SETTING_KEYS.rsyncPort, String(settings.rsyncPort));
             if (settings.rsyncUser) await updateSetting(SETTING_KEYS.rsyncUser, settings.rsyncUser);
+            if (settings.rsyncPassword) await updateSetting(SETTING_KEYS.rsyncPassword, settings.rsyncPassword);
+            await updateSetting(SETTING_KEYS.rsyncUseKey, settings.rsyncUseKey ? '1' : '0');
 
             notifications.show({
                 title: '成功',
@@ -135,24 +142,37 @@ export default function SettingsPage() {
         }
     };
 
-    const handleDownloadSshKey = () => {
-        // Mock SSH key generation and download
-        const mockPublicKey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDExamplePublicKey audiosync@localhost`;
-        const blob = new Blob([mockPublicKey], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'audiosync_rsa.pub';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    const handleDownloadSshKey = async () => {
+        try {
+            // 公開鍵取得API呼び出し（存在しない場合は自動生成される）
+            const response = await apiClient.get('/api/settings/ssh-key/public', {
+                responseType: 'blob'
+            });
 
-        notifications.show({
-            title: '公開鍵をダウンロードしました',
-            message: '同期先マシンの ~/.ssh/authorized_keys に追記してください',
-            color: 'blue',
-        });
+            // 公開鍵をダウンロード
+            const blob = response.data;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'audiosync_rsa.pub';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            notifications.show({
+                title: '公開鍵をダウンロードしました',
+                message: '同期先マシンの ~/.ssh/authorized_keys に追記してください',
+                color: 'blue',
+            });
+        } catch (error) {
+            console.error('SSH key retrieval failed:', error);
+            notifications.show({
+                title: 'エラー',
+                message: 'SSH鍵の取得に失敗しました',
+                color: 'red',
+            });
+        }
     };
 
     if (initialLoading) {

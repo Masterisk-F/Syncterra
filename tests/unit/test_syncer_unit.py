@@ -280,7 +280,8 @@ class TestRsyncSynchronizer:
             "rsync_host": "rsync_host",
             "rsync_port": "22",
             "sync_dest": "/remote/path",
-            "scan_paths": '["/local/music"]' # For synchronize include list
+            "scan_paths": '["/local/music"]', # For synchronize include list
+            "rsync_pass": "secret" # Default password for tests
         }
 
     @pytest.fixture
@@ -356,9 +357,9 @@ class TestRsyncSynchronizer:
         handle.write.assert_any_call("/Album/Song.mp3\n")
         handle.write.assert_any_call("/Album/\n")
 
-    def test_synchronize_remote_ssh(self, settings, mock_subprocess_popen, mock_tempfile, mock_os_funcs, mock_json_loads, mock_open_for_include_list):
+    def test_synchronize_remote_ssh_password(self, settings, mock_subprocess_popen, mock_tempfile, mock_os_funcs, mock_json_loads, mock_open_for_include_list):
         """
-        リモートSSH経由でのrsync同期で正しいコマンドが生成・実行されること。
+        リモートSSH経由でのrsync同期（パスワード認証）で正しいコマンドが生成・実行されること。
         """
         mock_json_loads.return_value = ["/local/music"]
 
@@ -373,6 +374,7 @@ class TestRsyncSynchronizer:
         
         # 期待されるrsyncコマンドの完全なリスト
         expected_cmd = [
+            "sshpass", "-p", "secret",
             "rsync",
             "-avz",
             "--delete-excluded",
@@ -384,6 +386,42 @@ class TestRsyncSynchronizer:
         ]
 
         assert actual_cmd == expected_cmd # 完全一致を検証
+
+    def test_synchronize_remote_ssh_key(self, settings, mock_subprocess_popen, mock_tempfile, mock_os_funcs, mock_json_loads, mock_open_for_include_list):
+        """
+        リモートSSH経由でのrsync同期（鍵認証）で正しいコマンドが生成・実行されること。
+        """
+        mock_json_loads.return_value = ["/local/music"]
+        
+        # Switch to key auth
+        settings["rsync_pass"] = ""
+        settings["rsync_use_key"] = "1"
+        settings["rsync_key_path"] = "/path/to/key"
+
+        with patch("os.path.exists", return_value=True):  # Key file exists
+            tracks = [
+                SimpleNamespace(sync=True, relative_path="/Album/Song.mp3")
+            ]
+            
+            sync = RsyncSynchronizer(tracks, [], settings)
+            sync.synchronize()
+            
+            actual_cmd = mock_subprocess_popen.call_args[0][0]
+            
+            # 期待されるrsyncコマンドの完全なリスト
+            # Key auth does NOT use sshpass
+            expected_cmd = [
+                "rsync",
+                "-avz",
+                "--delete-excluded",
+                "--include-from", "/tmp/temp_include_file",
+                "--exclude=*",
+                "/local/music",
+                "-e", "ssh -p 22 -i /path/to/key", # SSH key option included
+                "rsync_user@rsync_host:/remote/path"
+            ]
+
+            assert actual_cmd == expected_cmd
 
     def test_cp_local_file(self, settings, mock_subprocess_run, caplog):
         """
@@ -411,12 +449,12 @@ class TestRsyncSynchronizer:
         sync.cp("/src/file.txt", "dest/file.txt")
 
         expected_cmd = [
+            "sshpass", "-p", "secret",
             "rsync", "-avz", "-e", "ssh -p 22", "/src/file.txt", "rsync_user@rsync_host:/remote/path/dest/file.txt"
         ]
         mock_subprocess_run.assert_called_once()
         actual_cmd = mock_subprocess_run.call_args[0][0]
-        assert all(arg in actual_cmd for arg in expected_cmd)
-        assert "rsync_user@rsync_host:/remote/path/dest/file.txt" in actual_cmd
+        assert actual_cmd == expected_cmd
 
     def test_cp_failure_logs_error(self, settings, mock_subprocess_run, caplog):
         """
