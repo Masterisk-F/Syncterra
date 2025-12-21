@@ -43,7 +43,7 @@ graph TD
     - Node.js (v18+ 推奨)
     - ADB (Android Debug Bridge) - ADB同期モードを使用する場合
 - **Tools**:
-    - [Rye](https://rye-up.com/) (Pythonパッケージ管理)
+    - [uv](https://github.com/astral-sh/uv) (Pythonパッケージ管理)
     - npm (Nodeパッケージ管理)
 
 ## セットアップ (Installation & Setup)
@@ -53,7 +53,7 @@ graph TD
 依存関係をインストールします。
 
 ```bash
-rye sync
+uv sync
 ```
 
 ### Frontend
@@ -72,7 +72,7 @@ npm install
 ### 1. Backendの起動
 
 ```bash
-rye run uvicorn backend.main:app --reload
+uv run uvicorn backend.main:app --reload
 ```
 
 ### 2. Frontendの起動

@@ -120,7 +120,7 @@ async def test_syncer_flow_adb(temp_db, create_settings, patch_db_session):
 
 1.  **現状確認 (Green)**
     *   作業前に全テストを実行し、すべて成功することを確認します。
-    *   `rye run pytest` -> **ALL PASS**
+    *   `uv run pytest` -> **ALL PASS**
 2.  **テスト修正/作成 (Red)**
     *   これから実装する仕様に合わせて、**先にテストコードを修正または作成**します。
     *   期待する挙動をテストコードとして定義します。
@@ -130,7 +130,7 @@ async def test_syncer_flow_adb(temp_db, create_settings, patch_db_session):
     *   テスト実行 -> **PASS**
 4.  **回帰テスト (Regression)**
     *   他の機能を壊していないか、全テストを実行します。
-    *   `rye run pytest` -> **ALL PASS**
+    *   `uv run pytest` -> **ALL PASS**
 5.  **コミット (Commit)**
     *   全てのテストが通った状態で `git commit` します。
 
@@ -165,7 +165,7 @@ def test_scanner_should_skip_files_without_permission():
 
 将来的に以下の自動化を導入し、品質維持コストを下げます。
 
-*   **Task Runner**: `rye run check` コマンド等で、LintとTestを一括実行。
+*   **Task Runner**: `uv run ruff check` コマンド等で、Lintを実行。Testは `uv run pytest` で実行。
 *   **Pre-commit Hook**: コミット時に自動でテストを実行し、失敗したコードの混入を防ぐ。
 *   **Coverage**: 定期的にカバレッジを計測し、テストされていない「死角」を把握する。
 
