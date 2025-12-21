@@ -418,6 +418,9 @@ class FtpSynchronizer(AudioSynchronizer):
     def __init__(self, tracks, playlists, settings, log_callback=None):
         super().__init__(tracks, playlists, settings, log_callback)
         self.remote_os_sep = "/"
+        self.sync_root = self.settings.get("sync_dest", "/")
+        if not self.sync_root.startswith("/"):
+            self.sync_root = "/" + self.sync_root
 
         ip_addr = self.settings.get("ftp_host", "192.168.10.3")
         port = int(self.settings.get("ftp_port", 2221))
@@ -425,12 +428,16 @@ class FtpSynchronizer(AudioSynchronizer):
         passwd = self.settings.get("ftp_pass", "francis")
 
         self.log(f"Connecting to FTP {ip_addr}:{port} as {user}")
-        self.ftp = ftplib.FTP()
-        self.ftp.encoding = "utf-8"
-        self.ftp.set_pasv(True)
-        self.ftp.connect(host=ip_addr, port=port)
-        self.ftp.login(user=user, passwd=passwd)
-        self.log("FTP login success.")
+        try:
+            self.ftp = ftplib.FTP()
+            self.ftp.encoding = "utf-8"
+            self.ftp.set_pasv(True)
+            self.ftp.connect(host=ip_addr, port=port)
+            self.ftp.login(user=user, passwd=passwd)
+            self.log("FTP login success.")
+        except Exception as e:
+            self.log(f"FTP connection failed: {e}")
+            raise
 
     def __del__(self):
         try:
@@ -441,72 +448,106 @@ class FtpSynchronizer(AudioSynchronizer):
             except Exception:
                 pass
 
+    def _get_full_remote_path(self, relative_path):
+        # Ensure separators are / and relative_path is clean
+        rel = relative_path.replace("\\", "/").strip("/")
+        root = self.sync_root.replace("\\", "/").rstrip("/")
+        if not root.startswith("/"):
+            root = "/" + root
+            
+        if not rel:
+            return root
+        return root + "/" + rel
+
     def cp(self, filepath_from, relative_path_to):
-        remote_dir = os.path.dirname(relative_path_to).replace(
-            os.sep, self.remote_os_sep
-        )
-        filename = os.path.basename(relative_path_to)
+        full_path = self._get_full_remote_path(relative_path_to)
+        remote_dir = os.path.dirname(full_path)
+        filename = os.path.basename(full_path)
 
+        self.log(f"FTP Uploading: {filename} to {remote_dir}")
         try:
-            self.ftp.cwd(remote_dir)
-        except ftplib.error_perm:
-            # Maybe dir doesn't exist? Try to make it?
-            # mkdir_p_remote should have been called before.
-            # Retry ensuring root?
-            pass
-
-        try:
+            # Ensure we are at root before CWD to absolute-like path
+            self.ftp.cwd("/")
+            self.ftp.cwd(remote_dir.lstrip("/"))
             with open(filepath_from, "rb") as f:
                 stor = "STOR " + filename
                 self.ftp.storbinary(stor, f)
-            self.log(f"FTP STOR success: {filename}")
+            self.log(f"FTP STOR success: {filename} at {remote_dir}")
+        except Exception as e:
+            self.log(f"FTP STOR failed for {filename}: {e}")
+            raise
         finally:
-            self.ftp.cwd("/")
+            try:
+                self.ftp.cwd("/")
+            except Exception:
+                pass
 
     def rm_remote(self, relative_filepath_to):
+        full_path = self._get_full_remote_path(relative_filepath_to)
         try:
-            self.ftp.delete(relative_filepath_to)
-            self.log(f"FTP delete success: {relative_filepath_to}")
+            self.ftp.delete(full_path.lstrip("/"))
+            self.log(f"FTP delete success: {full_path}")
         except ftplib.error_perm as e:
             self.log(f"FTP delete failed: {e}")
 
     def mkdir_p_remote(self, relative_filepath_to):
         # Create directories recursively
-        # relative_filepath_to is the target directory path
-        parts = relative_filepath_to.strip(self.remote_os_sep).split(self.remote_os_sep)
+        full_path = self._get_full_remote_path(relative_filepath_to)
+        parts = full_path.strip("/").split("/")
         current = ""
         for part in parts:
-            current = (current + self.remote_os_sep + part) if current else part
+            current = (current + "/" + part) if current else ("/" + part)
             try:
-                self.ftp.mkd(current)
+                self.ftp.mkd(current.lstrip("/"))
+                self.log(f"FTP MKD success: {current}")
             except ftplib.error_perm:
-                pass  # Exists?
+                # ignore if directory already exists
+                pass
 
     def ls_remote(self, relative_dir=""):
-        target = relative_dir.replace(os.sep, self.remote_os_sep)
-        if not target:
-            target = "/"
+        target = self._get_full_remote_path(relative_dir)
 
+        self.log(f"FTP Listing: {target}")
         # Check existence first
         try:
-            self.ftp.cwd(target)
+            self.ftp.cwd("/")
+            self.ftp.cwd(target.lstrip("/"))
         except ftplib.error_perm:
-            raise FileNotFoundError()
+            raise FileNotFoundError(f"FTP directory not found: {target}")
 
         items = []
         try:
-            # mlsd is better for type detection
-            for name, facts in self.ftp.mlsd(path="", facts=["type"]):
+            # MLSD without facts avoids OPTS MLST which is often unsupported
+            for name, facts in self.ftp.mlsd(path=""):
                 if name in [".", ".."]:
                     continue
-                items.append((name, facts.get("type") == "dir"))
-        except ftplib.error_perm:
-            # Fallback for servers not supporting MLSD?
-            # Using nlst but it doesn't give type.
-            # Assume MLSD is supported as per original requirement (audio_synchronizer used mlsd)
-            pass
+                is_dir = facts.get("type") == "dir"
+                items.append((name, is_dir))
+        except (ftplib.error_perm, Exception) as e:
+            self.log(f"FTP MLSD failed for {target}: {e}. Falling back to nlst.")
+            try:
+                # nlst gives only names
+                names = self.ftp.nlst()
+                for name in names:
+                    if name in [".", ".."]:
+                        continue
+                    # Check if it's a directory by trying to CWD
+                    is_dir = False
+                    try:
+                        self.ftp.cwd(name)
+                        is_dir = True
+                        self.ftp.cwd("..")
+                    except ftplib.error_perm:
+                        is_dir = False
+                    items.append((name, is_dir))
+            except Exception as e2:
+                self.log(f"FTP nlst fallback also failed: {e2}")
         finally:
-            self.ftp.cwd("/")
+            try:
+                self.ftp.cwd("/")
+            except Exception:
+                pass
+        self.log(f"FTP Listing found {len(items)} items in {target}")
         return items
 
 
