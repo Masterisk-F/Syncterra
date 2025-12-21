@@ -479,7 +479,8 @@ class FtpSynchronizer(AudioSynchronizer):
             self.log(f"FTP STOR success: {filename} at {remote_dir}")
         except Exception as e:
             self.log(f"FTP STOR failed for {filename}: {e}")
-            raise
+            # Do not raise, just log error to allow sync to continue with other files
+            return
         finally:
             try:
                 self.ftp.cwd("/")

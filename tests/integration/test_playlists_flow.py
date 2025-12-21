@@ -27,40 +27,38 @@ async def client():
 
 
 @pytest_asyncio.fixture(scope="function")
-async def seed_data():
+async def seed_data(temp_db):
     """テスト用のトラックとプレイリストをセットアップ"""
-    from backend.db.database import AsyncSessionLocal
+    
+    # 既存データクリア
+    await temp_db.execute(delete(PlaylistTrack))
+    await temp_db.execute(delete(Playlist))
+    await temp_db.execute(delete(Track))
 
-    async with AsyncSessionLocal() as session:
-        # 既存データクリア
-        await session.execute(delete(PlaylistTrack))
-        await session.execute(delete(Playlist))
-        await session.execute(delete(Track))
-
-        # トラック作成
-        t1 = Track(
-            file_path="/music/track1.mp3",
-            relative_path="track1.mp3",
-            file_name="track1.mp3",
-            title="Track 1",
-            artist="Artist 1",
-            sync=True,
-        )
-        t2 = Track(
-            file_path="/music/track2.mp3",
-            relative_path="track2.mp3",
-            file_name="track2.mp3",
-            title="Track 2",
-            artist="Artist 2",
-            sync=False,
-        )
-        session.add(t1)
-        session.add(t2)
-        await session.commit()
-        await session.refresh(t1)
-        await session.refresh(t2)
-        
-        return {"tracks": [t1, t2]}
+    # トラック作成
+    t1 = Track(
+        file_path="/music/track1.mp3",
+        relative_path="track1.mp3",
+        file_name="track1.mp3",
+        title="Track 1",
+        artist="Artist 1",
+        sync=True,
+    )
+    t2 = Track(
+        file_path="/music/track2.mp3",
+        relative_path="track2.mp3",
+        file_name="track2.mp3",
+        title="Track 2",
+        artist="Artist 2",
+        sync=False,
+    )
+    temp_db.add(t1)
+    temp_db.add(t2)
+    await temp_db.commit()
+    await temp_db.refresh(t1)
+    await temp_db.refresh(t2)
+    
+    return {"tracks": [t1, t2]}
 
 
 @pytest.mark.asyncio

@@ -1,34 +1,15 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from backend.main import app
-from backend.db.database import init_db
 import pytest_asyncio
-
-
 import os
 import tempfile
 from unittest.mock import patch, MagicMock
-from sqlalchemy import delete, select
-from backend.db.models import Setting, Track
-from backend.db.database import AsyncSessionLocal
+from sqlalchemy import select
+from backend.db.models import Setting
 
 # Integration Test: Settings API
 # 目的: 設定APIエンドポイントが正しく動作するか検証する。
 
-
-@pytest_asyncio.fixture(scope="function")
-async def client():
-    # Initialize DB before test
-    await init_db()
-    async with AsyncSessionLocal() as session:
-        await session.execute(delete(Setting))
-        await session.execute(delete(Track))
-        await session.commit()
-
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        yield ac
 
 
 @pytest.mark.asyncio
@@ -44,7 +25,7 @@ async def test_get_settings_empty(client):
     1. ステータスコード 200 が返ること
     2. 空のリスト [] が返ること
     """
-    response = await client.get("/api/settings")
+    response = client.get("/api/settings")
     assert response.status_code == 200
     assert response.json() == []
 
@@ -62,13 +43,13 @@ async def test_update_setting(client):
     2. レスポンスに status: ok が含まれること
     3. GET で取得したデータに追加した設定が含まれること
     """
-    response = await client.put(
+    response = client.put(
         "/api/settings", json={"key": "test_key", "value": "test_val"}
     )
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
-    response = await client.get("/api/settings")
+    response = client.get("/api/settings")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -90,20 +71,20 @@ async def test_update_existing_setting(client):
     2. GET で取得した値が更新後の値になっていること
     """
     # Setup initial state
-    await client.put("/api/settings", json={"key": "test_key", "value": "initial_val"})
-
-    response = await client.put(
+    client.put("/api/settings", json={"key": "test_key", "value": "initial_val"})
+    
+    response = client.put(
         "/api/settings", json={"key": "test_key", "value": "updated_val"}
     )
     assert response.status_code == 200
 
-    response = await client.get("/api/settings")
+    response = client.get("/api/settings")
     data = response.json()
     assert data[0]["value"] == "updated_val"
 
 
 @pytest.mark.asyncio
-async def test_get_public_key_generate_new(client):
+async def test_get_public_key_generate_new(client, temp_db):
     """
     [Settings API] SSH公開鍵の新規生成と取得
     
@@ -120,10 +101,9 @@ async def test_get_public_key_generate_new(client):
     """
     
     # 事前設定の投入
-    async with AsyncSessionLocal() as session:
-        session.add(Setting(key="rsync_user", value="test_user"))
-        session.add(Setting(key="rsync_host", value="test_host"))
-        await session.commit()
+    temp_db.add(Setting(key="rsync_user", value="test_user"))
+    temp_db.add(Setting(key="rsync_host", value="test_host"))
+    await temp_db.commit()
 
     # モック用の公開鍵コンテンツ
     mock_pub_key_content = "ssh-rsa MOCK_PUBLIC_KEY audiosync@localhost"
@@ -163,18 +143,17 @@ async def test_get_public_key_generate_new(client):
             mock_run.side_effect = side_effect
             
             # API実行
-            response = await client.get("/api/settings/ssh-key/public")
+            response = client.get("/api/settings/ssh-key/public")
             
             # 検証
             assert response.status_code == 200
             assert response.text == mock_pub_key_content
             
             # DB更新確認
-            async with AsyncSessionLocal() as session:
-                result = await session.execute(select(Setting).where(Setting.key == "rsync_key_path"))
-                setting = result.scalars().first()
-                assert setting is not None
-                assert setting.value == priv_key
+            result = await temp_db.execute(select(Setting).where(Setting.key == "rsync_key_path"))
+            setting = result.scalars().first()
+            assert setting is not None
+            assert setting.value == priv_key
 
             # ssh-keygenが呼ばれたことの確認
             mock_run.assert_called()
@@ -216,7 +195,7 @@ async def test_get_public_key_existing(client):
              patch("subprocess.run") as mock_run:
             
             # API実行
-            response = await client.get("/api/settings/ssh-key/public")
+            response = client.get("/api/settings/ssh-key/public")
             
             # 検証
             assert response.status_code == 200

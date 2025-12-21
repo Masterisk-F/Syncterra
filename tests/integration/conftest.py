@@ -64,19 +64,15 @@ async def temp_db():
     await engine.dispose()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(autouse=True)
 async def override_get_db(temp_db):
     """
     FastAPIの依存性注入をオーバーライドし、temp_dbセッションを使用させるFixture。
+    autouse=Trueにより、すべてのテストで自動的に適用される。
     
     目的:
     APIエンドポイントが本番のDBではなく、テスト用のtemp_dbを使用するようにする。
     これにより、APIテスト時にDBアクセスがインメモリDBにリダイレクトされる。
-    
-    使用例:
-        def test_api(client, override_get_db):
-            response = client.get("/api/endpoint")
-            # このリクエストはtemp_dbを使用する
     """
     async def _get_db():
         yield temp_db
@@ -96,9 +92,9 @@ def client(override_get_db):
     - 同期的なTestClientを使用（シンプルなAPIテスト向け）
     
     使用例:
-        def test_api(client):
-            response = client.post("/api/scan")
-            assert response.status_code == 200
+    def test_api(client):
+        response = client.post("/api/scan")
+        assert response.status_code == 200
     """
     return TestClient(app)
 
@@ -209,10 +205,11 @@ def create_settings(temp_db):
     return _create_settings
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def patch_db_session(temp_db):
     """
     Scanner/Syncerなど独自にセッションを生成するサービス用のパッチFixture。
+    autouse=True: テスト全体で誤って本番DBに接続しないよう強制する。
     
     目的:
     ScannerServiceやSyncServiceは内部でAsyncSessionLocalを呼び出してDBセッションを取得する。
@@ -221,6 +218,7 @@ def patch_db_session(temp_db):
     パッチ対象:
     - backend.core.scanner.AsyncSessionLocal
     - backend.core.syncer.AsyncSessionLocal
+    - backend.api.settings.AsyncSessionLocal (念のため)
     
     使用例:
         async def test_scanner_flow(temp_db, patch_db_session):
@@ -238,11 +236,17 @@ def patch_db_session(temp_db):
     targets = [
         "backend.core.scanner.AsyncSessionLocal",
         "backend.core.syncer.AsyncSessionLocal",
+        "backend.db.database.AsyncSessionLocal", # Catch-all? Might be tricky if used as class
     ]
     
     patches = [patch(target, return_value=mock_session_cls) for target in targets]
     
     # パッチ開始
+    # Note: backend.db.database.AsyncSessionLocal patch might act weird if it's a class not function.
+    # But in database.py it is `AsyncSessionLocal = async_sessionmaker(...)` which is a callable (class-like).
+    # Setting return_value on it triggers when instantiated: `AsyncSessionLocal()` -> returns mock_session_cls
+    # which has __aenter__ returning temp_db. This matches usage `async with AsyncSessionLocal() as db:`
+    
     for p in patches:
         p.start()
     

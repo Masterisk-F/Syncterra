@@ -71,6 +71,8 @@ class TestCreatePlaylist:
         mock_result = MagicMock()
         mock_result.scalars.return_value.first.return_value = None  # 重複なし
         mock_db.execute.return_value = mock_result
+        mock_db.add = MagicMock() # Synchronous method
+        mock_db.commit = AsyncMock()
 
         # refresh後のnew_playlist.idが設定されるようにモック
         async def mock_refresh(obj):
@@ -288,6 +290,8 @@ class TestUpdatePlaylistTracks:
         mock_result3.scalars.return_value.all.return_value = []
 
         mock_db.execute.side_effect = [mock_result1, mock_result2, mock_result3]
+        mock_db.add = MagicMock() # Synchronous method
+        mock_db.commit = AsyncMock()
 
         tracks_update = PlaylistTracksUpdate(track_ids=[10, 20])
         result = await update_playlist_tracks(
