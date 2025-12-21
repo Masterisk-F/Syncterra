@@ -8,7 +8,6 @@ from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 from unittest.mock import patch
-from sqlalchemy.future import select
 
 from backend.core.syncer import SyncService
 from backend.db.models import Track

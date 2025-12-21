@@ -3,7 +3,7 @@ import os
 import json
 from sqlalchemy.future import select
 from backend.core.scanner import ScannerService
-from backend.db.models import Track, Setting
+from backend.db.models import Track
 
 # 日本語でのドキュメンテーションとテスト実装
 # Integration Test: Scanner Flow

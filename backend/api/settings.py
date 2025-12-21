@@ -49,7 +49,7 @@ def generate_ssh_key_pair(comment: str = ""):
         "-C", comment
     ]
     
-    result = subprocess.run(
+    subprocess.run(
         cmd,
         capture_output=True,
         text=True,

@@ -1,7 +1,8 @@
 import pytest
-from unittest.mock import MagicMock, patch
+import os
+from unittest.mock import patch
 from backend.core.syncer import SyncService
-from backend.db.models import Track, Setting
+from backend.db.models import Track
 
 # Integration Test: Syncer Flow
 # 目的: DBの状態と設定に基づいて、適切な同期コマンドが発行されるか検証する。
@@ -101,6 +102,7 @@ async def test_syncer_flow_rsync(temp_db, create_settings, patch_db_session):
         rsync_host="192.168.1.100",
         rsync_user="user",
         rsync_port="2222",
+        rsync_pass="password",
         scan_paths='["/local/music"]'
     )
     
@@ -122,10 +124,15 @@ async def test_syncer_flow_rsync(temp_db, create_settings, patch_db_session):
         assert mock_popen.called
         cmd = mock_popen.call_args[0][0] # First arg is the command list
         
-        # rsyncコマンドであること
-        assert cmd[0] == "rsync"
+        # sshpassが使われているので、コマンドの先頭は sshpass
+        assert cmd[0] == "sshpass"
+        assert cmd[2] == "password"
         
-        # SSH設定
+        # rsyncコマンド本体は cmd[3] から始まる
+        rsync_idx = 3
+        assert cmd[rsync_idx] == "rsync"
+        
+        # SSH設定 (-e ...)
         assert "-e" in cmd
         ssh_cmd = cmd[cmd.index("-e") + 1]
         assert "ssh -p 2222" in ssh_cmd
@@ -134,7 +141,6 @@ async def test_syncer_flow_rsync(temp_db, create_settings, patch_db_session):
         assert cmd[-1] == "user@192.168.1.100:/remote/music"
         
         # include-from ファイルの検証
-        # 引数の中から --include-from の次の引数（ファイルパス）を取得
         assert "--include-from" in cmd
         include_file_idx = cmd.index("--include-from") + 1
         include_file_path = cmd[include_file_idx]

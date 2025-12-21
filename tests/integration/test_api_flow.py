@@ -1,6 +1,4 @@
 import pytest
-import os
-import json
 from unittest.mock import patch
 from sqlalchemy.future import select
 from backend.db.models import Setting
