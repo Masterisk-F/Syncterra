@@ -456,7 +456,11 @@ class FtpSynchronizer(AudioSynchronizer):
             root = "/" + root
             
         if not rel:
-            return root
+            return root if root else "/"
+        
+        # If root is just "/", joining with "/" + rel would create "//rel"
+        if root == "/":
+            return "/" + rel
         return root + "/" + rel
 
     def cp(self, filepath_from, relative_path_to):
