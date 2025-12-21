@@ -231,7 +231,7 @@ class RsyncSynchronizer(AudioSynchronizer):
         user = self.settings.get("rsync_user")
         host = self.settings.get("rsync_host")
         port = self.settings.get("rsync_port", "22")
-        dest_path = self.settings.get("sync_dest", "~")
+        dest_path = self.settings.get("rsync_dest") or self.settings.get("sync_dest", "~")
         use_key = self.settings.get("rsync_use_key", "0") == "1"
         key_path = self.settings.get("rsync_key_path")
         password = self.settings.get("rsync_pass")
@@ -349,7 +349,7 @@ class RsyncSynchronizer(AudioSynchronizer):
         user = self.settings.get("rsync_user")
         host = self.settings.get("rsync_host")
         port = self.settings.get("rsync_port", "22")
-        dest_path = self.settings.get("sync_dest", "~")
+        dest_path = self.settings.get("rsync_dest") or self.settings.get("sync_dest", "~")
         use_key = self.settings.get("rsync_use_key", "0") == "1"
         key_path = self.settings.get("rsync_key_path")
         password = self.settings.get("rsync_pass")

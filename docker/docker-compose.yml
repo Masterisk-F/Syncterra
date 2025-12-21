@@ -12,6 +12,7 @@ services:
 
     environment:
       - DOCKER_DEFAULT_SCAN_PATHS=["/music"]
+      - DOCKER_RSYNC_KEY_PATH=/root/.ssh/audiosync_rsa
       - TZ=Asia/Tokyo
     volumes:
       # データベースの永続化
