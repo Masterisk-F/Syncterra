@@ -49,6 +49,8 @@ services:
       - FTP_PASS=password
       - PASV_MIN_PORT=21100
       - PASV_MAX_PORT=21110
+      - FILE_OPEN_MODE=0777
+      - LOCAL_UMASK=000
     volumes:
       - ../test_data/ftp:/home/vsftpd
     ports:
