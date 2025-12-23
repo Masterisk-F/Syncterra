@@ -115,6 +115,10 @@ class ScannerService:
                     # needs_meta_update: ファイル自体（タイムスタンプ）が更新されたか
                     # path_changed: スキャンルートディレクトリが変更され、同期先の相対パスが変わったか
                     # (例: /music をスキャン対象にしていたのを /music/default に変更した場合などにtrueになる)
+                    if track_in_db.msg == "Missing":
+                        track_in_db.msg = None
+                        logger.info(f"File recovered from missing: {file_path}")
+
                     needs_meta_update = track_in_db.last_modified != mtime_dt
                     path_changed = track_in_db.relative_path != rel_path
 

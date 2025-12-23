@@ -53,17 +53,19 @@ async def test_scanner_flow_new_files(temp_db, temp_fs, create_settings, patch_d
     assert track1.album == "Album 1"
 
 @pytest.mark.asyncio
-async def test_scanner_flow_delete_files(temp_db, temp_fs, create_settings, patch_db_session):
+async def test_scanner_flow_delete_and_recover_files(temp_db, temp_fs, create_settings, patch_db_session):
     """
-    [Scanner] ファイル削除検知フロー
+    [Scanner] ファイル削除および復元検知フロー
     
     条件:
     1. 既存のファイルが削除される
     2. スキャナーが実行される
+    3. 削除されたファイルが同じパスに再配置（復元）される
+    4. 再度スキャナーが実行される
     
     期待値:
-    1. DB上の該当レコードの msg カラムが 'Missing' に更新されること
-    2. レコード自体は削除されずに残ること（履歴保持のため）
+    1. 削除後: DB上の該当レコードの msg カラムが 'Missing' に更新されること
+    2. 復元後: DB上の該当レコードの msg カラムが None に戻り、ファイルが正常に認識されること
     """
     # 準備: 初回スキャン
     scan_paths = json.dumps([temp_fs])
@@ -71,19 +73,35 @@ async def test_scanner_flow_delete_files(temp_db, temp_fs, create_settings, patc
     scanner = ScannerService()
     await scanner.run_scan()
     
-    # 削除実行
+    # --- 1. 削除検知の検証 ---
     target_file = os.path.join(temp_fs, "Artist2", "song3.mp3")
     os.remove(target_file)
     
     # 再スキャン
     await scanner.run_scan()
     
-    # 検証
+    # 削除後のDB検証
     result = await temp_db.execute(select(Track).where(Track.file_name == "song3"))
     track = result.scalars().first()
     
     assert track is not None
-    assert track.msg == "Missing"
+    assert track.msg == "Missing", "ファイル削除後は msg が 'Missing' になるべき"
+
+    # --- 2. 復元検知の検証 ---
+    # ファイルを再作成 (復元)
+    with open(target_file, "w") as f:
+        f.write("restored contents")
+    
+    # 再スキャン
+    await scanner.run_scan()
+    
+    # 復元後のDB検証
+    result = await temp_db.execute(select(Track).where(Track.file_name == "song3"))
+    track = result.scalars().first()
+    
+    assert track is not None
+    assert track.msg != "Missing", "ファイル復元後は 'Missing' 状態がクリアされるべき"
+    assert track.msg is None or track.msg == "", "msg カラムは正常（None/空）に戻るべき"
 
 @pytest.mark.asyncio
 async def test_scanner_flow_exclude_dirs(temp_db, temp_fs, create_settings, patch_db_session):
