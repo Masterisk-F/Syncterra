@@ -1,6 +1,7 @@
 import os
 import datetime
 import logging
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Optional
@@ -37,24 +38,38 @@ class ScannerService:
             await self.load_settings(db)
 
             scan_paths_str = self._get_setting("scan_paths", "[]")
-            import json
-
             try:
                 scan_paths = json.loads(scan_paths_str)
-            except json.JSONDecodeError:
-                scan_paths = []
-
-            # Fallback if simple string
-            if isinstance(scan_paths_str, str) and not scan_paths:
-                if scan_paths_str.startswith(
-                    "["
-                ):  # Try to parse again if it looks like list but failed? No, just validation.
-                    pass
+                if not isinstance(scan_paths, list):
+                    scan_paths = [scan_paths] if scan_paths else []
+            except (json.JSONDecodeError, TypeError):
+                # Fallback: if it's a string like "['/path']" but with single quotes, 
+                # or just a plain string path
+                if isinstance(scan_paths_str, str) and scan_paths_str.strip():
+                    import ast
+                    try:
+                        # Try literal_eval for single quotes/list representation
+                        val = ast.literal_eval(scan_paths_str)
+                        if isinstance(val, list):
+                            scan_paths = val
+                        else:
+                            scan_paths = [str(val)]
+                    except (ValueError, SyntaxError):
+                        # Pure fallback for non-list strings
+                        scan_paths = [scan_paths_str]
                 else:
-                    scan_paths = [scan_paths_str]
+                    scan_paths = []
 
-            target_exts_str = self._get_setting("target_exts", "mp3,mp4,m4a")
-            target_exts = [f".{ext.strip()}" for ext in target_exts_str.split(",")]
+            target_exts_str = self._get_setting("target_exts", "")
+            if not target_exts_str.strip():
+                target_exts_str = "mp3,mp4,m4a"
+
+            # Normalize extensions: lower case and remove leading dot for comparison later
+            target_exts = [
+                f".{ext.strip().lower().lstrip('.')}" 
+                for ext in target_exts_str.split(",") 
+                if ext.strip()
+            ]
 
             exclude_dirs_str = self._get_setting("exclude_dirs", "")
             exclude_dirs = [d.strip() for d in exclude_dirs_str.split(",") if d.strip()]
@@ -96,25 +111,40 @@ class ScannerService:
                 track_in_db = existing_tracks.get(file_path)
 
                 if track_in_db:
-                    # Check if modified
-                    # Note: SQLite stores datetime, ensure comparison works
-                    # track_in_db.last_modified might be naïve or aware.
-                    # Let's verify if mtime changed.
-                    if track_in_db.last_modified != mtime_dt:
-                        # Update
-                        meta = await run_in_threadpool(
-                            self._extract_metadata, file_path
-                        )
-                        if meta:
-                            for key, value in meta.items():
-                                setattr(track_in_db, key, value)
-                            track_in_db.last_modified = mtime_dt
-                            track_in_db.msg = None  # Clear error msg if any
-                            updated_count += 1
-                            msg = f"File updated: {file_path}"
-                            logger.info(msg)
-                            if log_callback:
-                                log_callback(msg)
+                    # ファイルの変更、またはスキャン設定によるパス変更のチェック
+                    # needs_meta_update: ファイル自体（タイムスタンプ）が更新されたか
+                    # path_changed: スキャンルートディレクトリが変更され、同期先の相対パスが変わったか
+                    # (例: /music をスキャン対象にしていたのを /music/default に変更した場合などにtrueになる)
+                    needs_meta_update = track_in_db.last_modified != mtime_dt
+                    path_changed = track_in_db.relative_path != rel_path
+
+                    if needs_meta_update or path_changed:
+                        if needs_meta_update:
+                            # ファイルが変更されている場合はメタデータを再抽出
+                            meta = await run_in_threadpool(
+                                self._extract_metadata, file_path
+                            )
+                            if meta:
+                                for key, value in meta.items():
+                                    setattr(track_in_db, key, value)
+                                track_in_db.last_modified = mtime_dt
+                                track_in_db.msg = None
+                                updated_count += 1
+                                msg = f"File updated (meta): {file_path}"
+                                logger.info(msg)
+                                if log_callback:
+                                    log_callback(msg)
+                        
+                        if path_changed:
+                            # スキャンディレクトリ設定が変更された場合、相対パスのみを更新する。
+                            # ファイル実体に変更がない場合は、重いメタデータ抽出はスキップしてDB上のパスのみを修正する。
+                            track_in_db.relative_path = rel_path
+                            if not needs_meta_update:
+                                updated_count += 1
+                                msg = f"File updated (path): {file_path} -> {rel_path}"
+                                logger.info(msg)
+                                if log_callback:
+                                    log_callback(msg)
                 else:
                     # New file
                     meta = await run_in_threadpool(self._extract_metadata, file_path)
@@ -168,29 +198,35 @@ class ScannerService:
 
     def _scan_filesystem(self, paths: List[str], exts: List[str], excludes: List[str]):
         results = []  # (full_path, relative_path, mtime)
+        logger.info(f"FileSystem scan started. Target paths: {paths}, Exts: {exts}")
+        
         for root_path in paths:
+            logger.info(f"Checking root path: {root_path}")
             if not os.path.exists(root_path):
+                logger.warning(f"Path does not exist: {root_path}")
                 continue
-            for root, dirs, files in os.walk(root_path):
+            
+            if os.path.islink(root_path):
+                logger.info(f"Root path '{root_path}' is a symbolic link. Target: {os.path.realpath(root_path)}")
+
+            # We use followlinks=True to ensure mount points that are symlinks are traversed
+            for root, dirs, files in os.walk(root_path, followlinks=True):
                 # Filter excludes
+                original_dirs = list(dirs)
                 dirs[:] = [d for d in dirs if d not in excludes]
+                if len(dirs) != len(original_dirs):
+                    excluded = set(original_dirs) - set(dirs)
+                    logger.debug(f"Excluded directories in {root}: {excluded}")
 
                 for file in files:
+                    # Case insensitive check
                     if any(file.lower().endswith(ext) for ext in exts):
                         full_path = os.path.join(root, file)
-                        # Relative path calculation depends on business logic.
-                        # AudioSyncData uses root directory as base?
-                        # "rt[len(os.path.dirname(dir)):]" line 378 of audio_sync_data.py
-                        # It seems relative from the scan root parent? or scan root?
-                        # AudioSyncData: rt[len(os.path.dirname(dir)):] -> includes the folder name of the scanned dir?
-                        # Example: scan /music/Album1
-                        # file: /music/Album1/song.mp3
-                        # dirname(/music/Album1) -> /music/
-                        # rel -> Album1/song.mp3
-                        # Let's replicate this.
+                        
                         # Strip trailing slash to ensure dirname gives parent
                         root_clean = root_path.rstrip(os.sep)
                         base_dir = os.path.dirname(root_clean)
+                        
                         rel_path = (
                             full_path[len(base_dir) :]
                             if full_path.startswith(base_dir)
@@ -198,14 +234,15 @@ class ScannerService:
                         )
                         if not rel_path.startswith(os.sep):
                             rel_path = os.sep + rel_path
-                        # Ensure leading slash is removed if specific requirement, or standardized.
-                        # AudioSyncData line 378: returns (rt, rt[...])
 
                         try:
                             mtime = os.stat(full_path).st_mtime
                             results.append((full_path, rel_path, mtime))
-                        except OSError:
+                        except OSError as e:
+                            logger.error(f"Error accessing file {full_path}: {e}")
                             continue
+
+        logger.info(f"FileSystem scan finished. Found {len(results)} matching files.")
         return results
 
     def _extract_metadata(self, filepath: str) -> Optional[dict]:

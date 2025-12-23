@@ -60,7 +60,7 @@ async def init_db():
         import logging
         logger = logging.getLogger(__name__)
         for key, value in sync_defaults.items():
-            if value is not None:
+            if value is not None and str(value).strip() != "":
                 # Check if already exists
                 stmt = select(Setting).where(Setting.key == key)
                 res = await session.execute(stmt)
