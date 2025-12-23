@@ -677,29 +677,44 @@ class TestAudioSynchronizer:
     
     def test_synchronize_filter_by_extension(self, mock_synchronizer_class):
         """
-        target_exts設定に合致しないリモートファイルは削除されないこと。
+        target_exts設定に合致しないリモートファイルは削除されること。
+        target_exts設定に合致するファイルはlocal_mapに基づいて判断されること。
         """
-        tracks = []  # 同期リストは空
+        # 同期リストにmp3とm4aのファイルを含める
+        tracks = [
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/song.mp3",
+                file_name="song.mp3",
+                relative_path="/song.mp3"
+            ),
+            SimpleNamespace(
+                sync=True,
+                file_path="/local/audio.m4a",
+                file_name="audio.m4a",
+                relative_path="/audio.m4a"
+            )
+        ]
         
         settings = {"target_exts": "mp3,m4a"}  # mp3とm4aのみ対象
         sync = mock_synchronizer_class(tracks, [], settings)
-        # リモートに様々な拡張子のファイルがある
+        # リモートに音楽ファイルとゴミファイルがある
         sync._ls_remote_mock.return_value = [
-            ("song.mp3", False),   # target_exts に含まれる -> 削除
-            ("video.mp4", False),  # target_exts に含まれない -> 削除されない
-            ("audio.m4a", False),  # target_exts に含まれる -> 削除
-            ("text.txt", False)    # target_exts に含まれない -> 削除されない
+            ("song.mp3", False),   # target_exts に含まれる & local_mapにある -> 削除されない
+            ("video.mp4", False),  # target_exts に含まれない -> 削除される（ゴミファイル）
+            ("audio.m4a", False),  # target_exts に含まれる & local_mapにある -> 削除されない
+            ("text.txt", False)    # target_exts に含まれない -> 削除される（ゴミファイル）
         ]
         
         sync.synchronize()
         
-        # mp3とm4aのみ削除される
+        # mp4とtxtのみ削除される（target_extsに含まれないゴミファイル）
         assert sync._rm_remote_mock.call_count == 2
         deleted_files = [call.args[0] for call in sync._rm_remote_mock.call_args_list]
-        assert "song.mp3" in deleted_files
-        assert "audio.m4a" in deleted_files
-        assert "video.mp4" not in deleted_files
-        assert "text.txt" not in deleted_files
+        assert "video.mp4" in deleted_files
+        assert "text.txt" in deleted_files
+        assert "song.mp3" not in deleted_files
+        assert "audio.m4a" not in deleted_files
     
     def test_synchronize_create_directories(self, mock_synchronizer_class):
         """

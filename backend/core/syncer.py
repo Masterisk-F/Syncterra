@@ -132,9 +132,8 @@ class AudioSynchronizer(ABC):
                 pass
 
         # DELETE
-        # Iterate remote files, if not in local_map AND matches extension, delete
+        # Iterate remote files, if not in local_map, delete
         for r_file in remote_files:
-            ext = os.path.splitext(r_file)[1]
             if r_file not in local_map:
                 self.log(f"Removing remote file: {r_file}")
                 self.rm_remote(r_file)
