@@ -1,10 +1,10 @@
 # AudioSync
 
-AudioSyncは、PC上の音声ファイルをAndroidデバイスと同期し、Excelファイルを用いてプレイリストやメタデータを管理するためのWebアプリケーションです。
+AudioSyncは、PC上の音声ファイルをAndroidデバイスと同期し、プレイリストやメタデータを管理するためのWebアプリケーションです。
 
 ## 主な機能 (Features)
 
-- **Excel連携**: `src/audiosync/AudioSyncData.xlsx` で楽曲情報やプレイリストを一元管理。
+- **プレイリスト管理**: Web UI上で楽曲情報やプレイリストを一元管理。
 - **Android同期**: ADB (Android Debug Bridge) または Rsync を用いた高速・セキュアな同期。
 - **Web UI**: モダンなブラウザインターフェースで同期状況を確認・操作。
 - **自動メタデータ取得**: Mutagenによるタグ解析機能。
@@ -18,14 +18,12 @@ graph TD
     FE -- "HTTP API" --> BE["Backend (FastAPI)"]
     FE -- WebSocket --> BE
     BE <-->|"Read/Write"| DB[("SQLite")]
-    BE <-->|"Read/Write"| Excel["Excel (AudioSyncData.xlsx)"]
     BE -->|Read| LocalFS["Local Audio Files"]
     BE -->|"Sync (ADB/Rsync/FTP)"| Remote["Android Device / Remote Server"]
     
     subgraph "Backend System"
         BE
         DB
-        Excel
     end
 ```
 
@@ -33,7 +31,7 @@ graph TD
 
 - **Frontend**: React (Vite) を採用し、高速でインタラクティブなUIを提供。AG Gridによる大量のデータ操作と、WebSocketを通じたリアルタイムな同期ログ表示を実現しています。
 - **Backend**: FastAPI を使用し、非同期処理による高パフォーマンスなAPIを提供。
-- **Data Management**: 設定やキャッシュはSQLiteに保存し、ユーザーが編集するプレイリストや楽曲管理情報はExcel (`AudioSyncData.xlsx`) で管理することで、手軽な編集とシステム連携を両立しています。
+- **Data Management**: 設定、プレイリスト、楽曲管理情報はすべて SQLite に保存され、高速な検索と安定した動作を実現しています。
 - **Core Engine**: `ADB`, `Rsync`, `FTP` の3つのプロトコルを抽象化した同期エンジン (`AudioSynchronizer`) を実装し、柔軟なデバイス環境に対応可能です。
 
 ## 前提条件 (Prerequisites)
@@ -113,7 +111,7 @@ docker-compose -f docker/docker-compose.yml up --build -d
 
 - **Backend**: Python, FastAPI, SQLAlchemy (SQLite), aiosqlite, Websockets
 - **Frontend**: TypeScript, React, Vite, Mantine UI, AG Grid
-- **Others**: Mutagen (Audio Metadata), OpenPyXL (Excel), Adbutils
+- **Others**: Mutagen (Audio Metadata), Adbutils
 
 ## ライセンス (License)
 
