@@ -19,7 +19,7 @@ services:
       - ../db:/app/db
       
       # SSH鍵の共有
-      # 重要: ホスト上に鍵ファイル (audiosync_rsa, audiosync_rsa.pub) が既に存在する場合のみ、以下のファイルバインドを使用してください。
+      # 重要: ホスト上に鍵ファイル (syncterra_rsa, syncterra_rsa.pub) が既に存在する場合のみ、以下のファイルバインドを使用してください。
       # まだ鍵が存在しない場合は、ディレクトリごとマウント (- ${HOME}/.ssh:/root/.ssh) して起動してください。
       # ファイルが存在しない状態でファイルバインドを行うと、Dockerがディレクトリとして作成してしまいエラーになります。
       - ${HOME}/.ssh/syncterra_rsa:/root/.ssh/syncterra_rsa

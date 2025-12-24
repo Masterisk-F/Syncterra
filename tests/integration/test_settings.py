@@ -106,13 +106,13 @@ async def test_get_public_key_generate_new(client, temp_db):
     await temp_db.commit()
 
     # モック用の公開鍵コンテンツ
-    mock_pub_key_content = "ssh-rsa MOCK_PUBLIC_KEY audiosync@localhost"
+    mock_pub_key_content = "ssh-rsa MOCK_PUBLIC_KEY syncterra@localhost"
     
     # 既存の定数をパッチするための一時ディレクトリ作成
     with tempfile.TemporaryDirectory() as tmpdir:
         ssh_dir = os.path.join(tmpdir, ".ssh")
-        priv_key = os.path.join(ssh_dir, "audiosync_rsa")
-        pub_key = os.path.join(ssh_dir, "audiosync_rsa.pub")
+        priv_key = os.path.join(ssh_dir, "syncterra_rsa")
+        pub_key = os.path.join(ssh_dir, "syncterra_rsa.pub")
         
         # モック設定
         with patch("backend.api.settings.SSH_KEY_DIR", ssh_dir), \
@@ -174,13 +174,13 @@ async def test_get_public_key_existing(client):
     3. ssh-keygenコマンドが実行されないこと
     """
     
-    existing_pub_key = "ssh-rsa EXISTING_KEY audiosync@localhost"
+    existing_pub_key = "ssh-rsa EXISTING_KEY syncterra@localhost"
     
     with tempfile.TemporaryDirectory() as tmpdir:
         ssh_dir = os.path.join(tmpdir, ".ssh")
         os.makedirs(ssh_dir)
-        priv_key = os.path.join(ssh_dir, "audiosync_rsa")
-        pub_key = os.path.join(ssh_dir, "audiosync_rsa.pub")
+        priv_key = os.path.join(ssh_dir, "syncterra_rsa")
+        pub_key = os.path.join(ssh_dir, "syncterra_rsa.pub")
         
         # 鍵ファイル作成
         with open(priv_key, "w") as f:

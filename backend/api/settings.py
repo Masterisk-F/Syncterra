@@ -16,8 +16,8 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 # SSH鍵の保存場所
 SSH_KEY_DIR = os.path.expanduser("~/.ssh")
-SSH_PRIVATE_KEY_PATH = os.path.join(SSH_KEY_DIR, "audiosync_rsa")
-SSH_PUBLIC_KEY_PATH = os.path.join(SSH_KEY_DIR, "audiosync_rsa.pub")
+SSH_PRIVATE_KEY_PATH = os.path.join(SSH_KEY_DIR, "syncterra_rsa")
+SSH_PUBLIC_KEY_PATH = os.path.join(SSH_KEY_DIR, "syncterra_rsa.pub")
 
 
 class SettingModel(BaseModel):
@@ -123,7 +123,7 @@ async def get_public_key(db: AsyncSession = Depends(get_db)):
         return Response(
             content=public_key, 
             media_type="text/plain",
-            headers={"Content-Disposition": 'attachment; filename="audiosync_rsa.pub"'}
+            headers={"Content-Disposition": 'attachment; filename="syncterra_rsa.pub"'}
         )
         
     except subprocess.CalledProcessError as e:
