@@ -3,7 +3,7 @@ services:
     build:
       context: ../
       dockerfile: docker/backend/Dockerfile
-    container_name: audiosync-backend
+    container_name: syncterra-backend
     
     # ADB接続を使用する場合のみ network_mode: "host" を有効にしてください。
     # network_mode: "host"
@@ -12,7 +12,7 @@ services:
 
     environment:
       - DOCKER_DEFAULT_SCAN_PATHS=["/music"]
-      - DOCKER_RSYNC_KEY_PATH=/root/.ssh/audiosync_rsa
+      - DOCKER_RSYNC_KEY_PATH=/root/.ssh/syncterra_rsa
       - TZ=Asia/Tokyo
     volumes:
       # データベースの永続化
@@ -22,8 +22,8 @@ services:
       # 重要: ホスト上に鍵ファイル (audiosync_rsa, audiosync_rsa.pub) が既に存在する場合のみ、以下のファイルバインドを使用してください。
       # まだ鍵が存在しない場合は、ディレクトリごとマウント (- ${HOME}/.ssh:/root/.ssh) して起動してください。
       # ファイルが存在しない状態でファイルバインドを行うと、Dockerがディレクトリとして作成してしまいエラーになります。
-      - ${HOME}/.ssh/audiosync_rsa:/root/.ssh/audiosync_rsa
-      - ${HOME}/.ssh/audiosync_rsa.pub:/root/.ssh/audiosync_rsa.pub
+      - ${HOME}/.ssh/syncterra_rsa:/root/.ssh/syncterra_rsa
+      - ${HOME}/.ssh/syncterra_rsa.pub:/root/.ssh/syncterra_rsa.pub
       
       # 音楽ディレクトリのマウント (:ro を付けることでRead Onlyになります)
       - ${HOME}/Music:/music/default:ro
@@ -35,7 +35,7 @@ services:
     build:
       context: ../
       dockerfile: docker/frontend/Dockerfile
-    container_name: audiosync-frontend
+    container_name: syncterra-frontend
     
     ports:
       - "8280:80"

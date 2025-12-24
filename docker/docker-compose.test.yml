@@ -3,7 +3,7 @@ services:
     build:
       context: ../
       dockerfile: docker/backend/Dockerfile
-    container_name: audiosync-backend-test
+    container_name: syncterra-backend-test
     ports:
       - "8000:8000"
     environment:
@@ -34,7 +34,7 @@ services:
     build:
       context: ../
       dockerfile: docker/frontend/Dockerfile
-    container_name: audiosync-frontend-test
+    container_name: syncterra-frontend-test
     ports:
       - "8280:80"
     environment:
@@ -43,7 +43,7 @@ services:
 
   ftp:
     image: fauria/vsftpd
-    container_name: audiosync-ftp-test
+    container_name: syncterra-ftp-test
     environment:
       - FTP_USER=testuser
       - FTP_PASS=password
@@ -61,7 +61,7 @@ services:
     build:
       context: .
       dockerfile: rsync/Dockerfile
-    container_name: audiosync-rsync-test
+    container_name: syncterra-rsync-test
     environment:
       - PUID=1000
       - PGID=1000
