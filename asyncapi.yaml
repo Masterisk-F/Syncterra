@@ -1,9 +1,9 @@
 asyncapi: 2.6.0
 info:
-  title: AudioSync WebSocket API
+  title: Syncterra WebSocket API
   version: 1.0.0
   description: |
-    AudioSyncアプリケーションのWebSocket API仕様。
+    SyncterraアプリケーションのWebSocket API仕様。
     スキャンと同期処理のリアルタイム進捗・ログを配信します。
 
 servers:

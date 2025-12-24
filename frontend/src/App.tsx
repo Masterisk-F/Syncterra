@@ -26,7 +26,7 @@ export default function App() {
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} size="sm" />
-            <Title order={3}>AudioSync Web</Title>
+            <Title order={3}>Syncterra</Title>
           </Group>
           <ActionIcon
             onClick={() => toggleColorScheme()}

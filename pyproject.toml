@@ -1,7 +1,7 @@
 [project]
-name = "audiosync"
+name = "syncterra"
 version = "0.1.0"
-description = "Audio file synchronization tool for Android devices"
+description = "Audio file synchronization tool for various devices"
 license = { text = "GPL-3.0-or-later" }
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",

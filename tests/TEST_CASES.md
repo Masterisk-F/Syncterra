@@ -1,4 +1,4 @@
-# AudioSync Integration Test Cases
+# Syncterra Integration Test Cases
 
 作成された統合テスト（`tests/integration/`）に基づくテストケース仕様書です。
 これらのテストは、実際のファイルスキャン処理および外部コマンド（ADB/Rsync/FTP）の生成ロジックを結合レベルで自動検証します。

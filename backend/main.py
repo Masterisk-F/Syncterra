@@ -10,7 +10,7 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AudioSync API")
+app = FastAPI(title="Syncterra API")
 
 # CORS設定 - フロントエンドからのアクセスを許可
 app.add_middleware(

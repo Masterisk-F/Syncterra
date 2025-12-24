@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from .models import Base
 
-DATABASE_URL = "sqlite+aiosqlite:///./db/audiosync.db"
+DATABASE_URL = "sqlite+aiosqlite:///./db/syncterra.db"
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 

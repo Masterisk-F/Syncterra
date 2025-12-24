@@ -1,6 +1,6 @@
-# AudioSync
+# Syncterra
 
-AudioSyncは、PC上の音声ファイルをAndroidデバイスと同期し、プレイリストやメタデータを管理するためのWebアプリケーションです。
+Syncterraは、PC上の音声ファイルをデバイスと同期し、プレイリストやメタデータを管理するためのWebアプリケーションです。
 
 ## 主な機能 (Features)
 
