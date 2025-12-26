@@ -44,7 +44,8 @@ async def test_scanner_flow_new_files(temp_db, temp_fs, create_settings, patch_d
     # 登録されたデータの整合性チェック
     track1 = next(t for t in tracks if t.file_name == "song1")
     assert "/Artist1/Album1/song1.mp3" in track1.relative_path
-    assert track1.msg != "Missing"
+    assert "/Artist1/Album1/song1.mp3" in track1.relative_path
+    assert not track1.missing
     
     # メタデータ抽出の検証
     # conftest.pyで設定した値: title="Song 1", artist="Artist 1", album="Album 1"
@@ -85,7 +86,8 @@ async def test_scanner_flow_delete_and_recover_files(temp_db, temp_fs, create_se
     track = result.scalars().first()
     
     assert track is not None
-    assert track.msg == "Missing", "ファイル削除後は msg が 'Missing' になるべき"
+    assert track is not None
+    assert track.missing is True, "ファイル削除後は missing が True になるべき"
 
     # --- 2. 復元検知の検証 ---
     # ファイルを再作成 (復元)
@@ -100,8 +102,8 @@ async def test_scanner_flow_delete_and_recover_files(temp_db, temp_fs, create_se
     track = result.scalars().first()
     
     assert track is not None
-    assert track.msg != "Missing", "ファイル復元後は 'Missing' 状態がクリアされるべき"
-    assert track.msg is None or track.msg == "", "msg カラムは正常（None/空）に戻るべき"
+    assert track is not None
+    assert track.missing is False, "ファイル復元後は 'Missing' 状態（missing=True）がクリアされるべき"
 
 @pytest.mark.asyncio
 async def test_scanner_flow_exclude_dirs(temp_db, temp_fs, create_settings, patch_db_session):
@@ -170,7 +172,9 @@ async def test_scanner_flow_update_files(temp_db, temp_fs, create_settings, patc
     track = result.scalars().first()
     assert track is not None
     # msgがMissingになっていないこと
-    assert track.msg != "Missing"
+    assert track is not None
+    # msgがMissingになっていないこと
+    assert not track.missing
 
 @pytest.mark.asyncio
 async def test_scanner_flow_progress_callbacks(temp_db, temp_fs, create_settings, patch_db_session):

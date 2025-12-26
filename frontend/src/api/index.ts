@@ -28,6 +28,10 @@ export const batchUpdateTracks = async (ids: number[], sync: boolean): Promise<v
     await apiClient.put('/api/tracks/batch', { ids, sync });
 };
 
+export const deleteMissingTracks = async (): Promise<void> => {
+    await apiClient.delete('/api/tracks/missing');
+};
+
 // System API
 
 export const scanFiles = async (): Promise<void> => {

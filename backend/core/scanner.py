@@ -115,8 +115,8 @@ class ScannerService:
                     # needs_meta_update: ファイル自体（タイムスタンプ）が更新されたか
                     # path_changed: スキャンルートディレクトリが変更され、同期先の相対パスが変わったか
                     # (例: /music をスキャン対象にしていたのを /music/default に変更した場合などにtrueになる)
-                    if track_in_db.msg == "Missing":
-                        track_in_db.msg = None
+                    if track_in_db.missing:
+                        track_in_db.missing = False
                         logger.info(f"File recovered from missing: {file_path}")
 
                     needs_meta_update = track_in_db.last_modified != mtime_dt
@@ -159,6 +159,7 @@ class ScannerService:
                             last_modified=mtime_dt,
                             added_date=datetime.datetime.now(),
                             sync=False,  # Default
+                            missing=False,
                             **meta,
                         )
                         db.add(new_track)
@@ -181,10 +182,9 @@ class ScannerService:
                 if file_path not in files_scanned_set:
                     # File removed
                     # Option A: Delete
-                    # Option B: Mark as missing (msg="Missing")
-                    # Original logic used msg="-".
-                    if track.msg != "Missing":
-                        track.msg = "Missing"
+                    # Option B: Mark as missing (missing=True)
+                    if not track.missing:
+                        track.missing = True
                         missing_count += 1
                         msg = f"File missing: {file_path}"
                         logger.info(msg)

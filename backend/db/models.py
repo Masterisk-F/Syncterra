@@ -30,6 +30,7 @@ class Track(Base):
     codec = Column(String)
     msg = Column(String)
     sync = Column(Boolean, default=False)
+    missing = Column(Boolean, default=False)
     added_date = Column(DateTime, default=datetime.now)
     last_modified = Column(DateTime)
 

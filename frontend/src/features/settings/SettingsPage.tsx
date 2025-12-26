@@ -14,13 +14,15 @@ import {
     PasswordInput,
     Switch,
     Alert,
-    Loader
+    Loader,
+    Modal
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconDeviceFloppy, IconDownload, IconInfoCircle } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconDownload, IconInfoCircle, IconTrash } from '@tabler/icons-react';
 import type { AppSettings, SyncMethod } from '../../types/settings';
 import { DEFAULT_SETTINGS } from '../../types/settings';
-import { getSettings, updateSetting } from '../../api';
+import { getSettings, updateSetting, deleteMissingTracks } from '../../api';
 import { apiClient } from '../../api/client';
 import type { Setting } from '../../api/types';
 
@@ -83,6 +85,7 @@ export default function SettingsPage() {
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
+    const [opened, { open, close }] = useDisclosure(false);
 
     // Load settings from API
     useEffect(() => {
@@ -139,6 +142,25 @@ export default function SettingsPage() {
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDeleteMissing = async () => {
+        close();
+        try {
+            await deleteMissingTracks();
+            notifications.show({
+                title: '成功',
+                message: '行方不明ファイルの情報を削除しました',
+                color: 'green',
+            });
+        } catch (error) {
+            console.error('Failed to delete missing tracks:', error);
+            notifications.show({
+                title: 'エラー',
+                message: '削除に失敗しました',
+                color: 'red',
+            });
         }
     };
 
@@ -351,6 +373,34 @@ export default function SettingsPage() {
                     )}
                 </Stack>
             </Paper>
+
+            <Paper p="md" withBorder radius="md">
+                <Stack gap="md">
+                    <Text fw={500} size="lg">DB設定</Text>
+                    <Divider />
+
+                    <Text size="sm" c="dimmed">
+                        スキャンで見つからなくなったファイル（Missing状態）をデータベースから削除します。
+                    </Text>
+
+                    <Group>
+                        <Button color="red" variant="outline" onClick={open} leftSection={<IconTrash size={20} />}>
+                            見えなくなったファイルの情報を削除
+                        </Button>
+                    </Group>
+                </Stack>
+            </Paper>
+
+            <Modal opened={opened} onClose={close} title="確認" centered>
+                <Text size="sm">
+                    スキャンで見つからなくなったファイル（Missing状態）をデータベースから完全に削除しますか？<br />
+                    この操作は取り消せません。
+                </Text>
+                <Group justify="flex-end" mt="lg">
+                    <Button variant="default" onClick={close}>キャンセル</Button>
+                    <Button color="red" onClick={handleDeleteMissing}>削除</Button>
+                </Group>
+            </Modal>
         </Stack>
     );
 }
