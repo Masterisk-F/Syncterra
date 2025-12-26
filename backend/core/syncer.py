@@ -225,6 +225,26 @@ class RsyncSynchronizer(AudioSynchronizer):
         self.remote_os_sep = "/"
         # Settings: rsync_host, rsync_port, rsync_user, rsync_path
 
+    def rsync_escape(self, path: str) -> str:
+        r"""
+        rsyncの--include-fromで使用されるパターン用に特殊文字をエスケープする。
+        [ -> \[
+        ] -> \]
+        * -> \*
+        ? -> \?
+        \ -> \\
+        """
+        # [ と ] も含め、特殊文字をバックスラッシュでエスケープ
+        # \ はrsyncパターン内でのエスケープ文字なので \\ に
+        # * と ? もリテラルとして扱うためにエスケープ
+        escaped = ""
+        for char in path:
+            if char in "[ ] * ? \\".split():
+                escaped += "\\" + char
+            else:
+                escaped += char
+        return escaped
+
     def synchronize(self):
         # Override synchronize to use native rsync features
         user = self.settings.get("rsync_user")
@@ -243,8 +263,11 @@ class RsyncSynchronizer(AudioSynchronizer):
             # Add all parent dirs
             parts = t.relative_path.replace("\\", "/").split("/")
             for i in range(1, len(parts)):
-                include_list.add("/".join(parts[:i]) + "/")
-            include_list.add(t.relative_path.replace("\\", "/"))
+                dir_path = "/".join(parts[:i]) + "/"
+                include_list.add(self.rsync_escape(dir_path))
+            
+            full_path = t.relative_path.replace("\\", "/")
+            include_list.add(self.rsync_escape(full_path))
 
         fd, include_path = tempfile.mkstemp()
         

@@ -547,6 +547,56 @@ class TestRsyncSynchronizer:
         
         assert actual_lines == expected_lines
 
+    def test_rsync_escape(self):
+        r"""
+        RsyncSynchronizer.rsync_escape が特殊文字を正しくエスケープすること。
+        [ -> \[
+        ] -> \]
+        * -> \*
+        ? -> \?
+        \ -> \\
+        """
+        # RsyncSynchronizer インスタンスを作成（設定は最小限）
+        sync = RsyncSynchronizer([], [], {})
+        
+        # 個別の文字のテスト
+        assert sync.rsync_escape("[test]") == r"\[test\]"
+        assert sync.rsync_escape("file*.mp3") == r"file\*.mp3"
+        assert sync.rsync_escape("file?.mp3") == r"file\?.mp3"
+        assert sync.rsync_escape("path\\to\\file") == r"path\\to\\file"
+        
+        # 複雑なケースのテスト
+        complex_path = "Various Artists/[2024] 音楽 (TEST Remix) [PSRqX4zAr_4].m4a"
+        expected_path = r"Various Artists/\[2024\] 音楽 (TEST Remix) \[PSRqX4zAr_4\].m4a"
+        assert sync.rsync_escape(complex_path) == expected_path
+
+    def test_synchronize_with_escaping(self, settings, mock_subprocess_popen, mock_tempfile, mock_os_funcs, mock_json_loads):
+        """
+        synchronizeメソッドが特殊文字を含むパスを正しくエスケープして include-from ファイルに書き出すこと。
+        """
+        mock_json_loads.return_value = ["/local/music"]
+        # 特殊文字を含むトラック
+        tracks = [
+            SimpleNamespace(sync=True, relative_path="/Various [Artists]/Song [Mix].mp3")
+        ]
+        sync = RsyncSynchronizer(tracks, [], settings)
+
+        m_open = mock_open()
+        with patch("builtins.open", m_open):
+            sync.synchronize()
+        
+        handle = m_open()
+        written_content = "".join(call_arg.args[0] for call_arg in handle.write.call_args_list)
+        
+        # 親ディレクトリもエスケープされている必要がある
+        expected_lines = {
+            r"/Various \[Artists\]/Song \[Mix\].mp3",
+            r"/Various \[Artists\]/",
+            "/"
+        }
+        actual_lines = set(written_content.strip().splitlines())
+        assert actual_lines == expected_lines
+
 
 # --- AudioSynchronizer Base Class Tests ---
 
