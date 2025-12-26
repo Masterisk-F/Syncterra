@@ -14,7 +14,9 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const { handleSync, isSyncing, isLogDrawerOpen, setIsLogDrawerOpen, progress, logs } = useSync();
+  const { handleSync, isSyncing, isScanning, isLogDrawerOpen, setIsLogDrawerOpen, progress, logs, processName } = useSync();
+
+  const isProcessing = isSyncing || isScanning;
 
   return (
     <AppShell
@@ -36,6 +38,7 @@ function AppContent() {
                 leftSection={<IconPlayerPlay size={18} />}
                 onClick={() => handleSync()}
                 loading={isSyncing}
+                disabled={isScanning}
                 color="green"
                 size="xs"
                 variant="filled"
@@ -96,8 +99,8 @@ function AppContent() {
       <ProcessLogDrawer
         opened={isLogDrawerOpen}
         onClose={() => setIsLogDrawerOpen(false)}
-        isProcessing={isSyncing}
-        processName="同期"
+        isProcessing={isProcessing}
+        processName={processName}
         progress={progress}
         logs={logs}
       />

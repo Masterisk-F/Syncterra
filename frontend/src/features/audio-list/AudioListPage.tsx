@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ValueFormatterParams, GridApi, GridReadyEvent, IRowNode, ICellRendererParams } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
@@ -6,7 +6,8 @@ import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy } from '@tabler/icons-react';
 import type { Track } from '../../types/track';
-import { getTracks, batchUpdateTracks, scanFiles } from '../../api';
+import { getTracks, batchUpdateTracks } from '../../api';
+import type { Track as ApiTrack } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
 
 // Register AG Grid modules
@@ -47,8 +48,7 @@ export default function AudioListPage() {
     const [loading, setLoading] = useState(true);
     const { colorScheme } = useMantineColorScheme();
 
-    const [isScanning, setIsScanning] = useState(false);
-    const { isSyncing, isConnected } = useSync();
+    const { isSyncing, isScanning, isConnected, handleScan, lastUpdateId } = useSync();
 
     const gridTheme = useMemo(() => {
         return colorScheme === 'dark'
@@ -58,56 +58,58 @@ export default function AudioListPage() {
 
 
     // Load tracks from API
-    useEffect(() => {
-        const loadTracks = async () => {
-            try {
-                const tracks = await getTracks();
-                // APIのTrack型をフロント型に変換（必要に応じて）
-                const frontendTracks: Track[] = tracks.map((t) => ({ // Cast to any to access new fields if not in generated type
-                    id: t.id,
-                    msg: t.msg ?? '',
-                    sync: t.sync,
-                    title: t.title || '',
-                    artist: t.artist || '',
-                    album_artist: t.album_artist || '',
-                    composer: t.composer || '',
-                    album: t.album || '',
-                    track_num: t.track_num || '',
-                    length: t.duration || 0,
-                    file_name: t.file_name,
-                    file_path: t.file_path,
-                    file_path_to_relative: t.relative_path || '',
-                    codec: t.codec || '',
-                    size: 0, // Removed from plan
-                    added_date: t.added_date || '',
-                    update_date: t.last_modified || '',
-                }));
-                setRowData(frontendTracks);
-            } catch (error) {
-                console.error('Failed to load tracks:', error);
-                notifications.show({
-                    title: 'エラー',
-                    message: 'トラック一覧の読み込みに失敗しました',
-                    color: 'red',
-                });
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadTracks();
+    const loadTracks = useCallback(async () => {
+        try {
+            const tracks: ApiTrack[] = await getTracks();
+            // APIのTrack型をフロント型に変換
+            const frontendTracks: Track[] = tracks.map((t: ApiTrack) => ({
+                id: t.id,
+                msg: t.msg ?? '',
+                sync: t.sync,
+                title: t.title || '',
+                artist: t.artist || '',
+                album_artist: t.album_artist || '',
+                composer: t.composer || '',
+                album: t.album || '',
+                track_num: t.track_num || '',
+                length: t.duration || 0,
+                file_name: t.file_name,
+                file_path: t.file_path,
+                file_path_to_relative: t.relative_path || '',
+                codec: t.codec || '',
+                size: 0,
+                added_date: t.added_date || '',
+                update_date: t.last_modified || '',
+            }));
+            setRowData(frontendTracks);
+        } catch (error) {
+            console.error('Failed to load tracks:', error);
+            notifications.show({
+                title: 'エラー',
+                message: 'トラック一覧の読み込みに失敗しました',
+                color: 'red',
+            });
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
+    useEffect(() => {
+        loadTracks();
+    }, [loadTracks]);
 
-    // Scan実行
-    const handleScan = async () => {
-        setIsScanning(true);
-        try {
-            await scanFiles();
-        } catch (error) {
-            console.error('Scan failed:', error);
-            notifications.show({ title: 'エラー', message: 'スキャンに失敗しました', color: 'red' });
-            setIsScanning(false);
+    // リロードフラグ (lastUpdateId) の変更を検知して再読み込み
+    useEffect(() => {
+        if (lastUpdateId > 0) {
+            loadTracks();
         }
+    }, [lastUpdateId, loadTracks]);
+
+    // WebSocket初期化はSyncContextに移動しました。
+
+    // Scan実行もSyncContext経由で実行します
+    const onScanClick = async () => {
+        await handleScan();
     };
 
 
@@ -221,7 +223,7 @@ export default function AudioListPage() {
                     </div>
                 );
             },
-            cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as any,
+            cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as React.CSSProperties,
         },
         {
             field: 'title',
@@ -349,7 +351,7 @@ export default function AudioListPage() {
 
                         <Button
                             leftSection={<IconRefresh size={20} />}
-                            onClick={handleScan}
+                            onClick={onScanClick}
                             loading={isScanning}
                             disabled={isSyncing}
                             variant="default"
