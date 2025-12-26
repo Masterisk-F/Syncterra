@@ -57,6 +57,8 @@ def ftp_server():
     server.close_all()
     # サーバーディレクトリの削除
     shutil.rmtree(server_root)
+    # スレッドの終了待機
+    server_thread.join(timeout=2.0)
 
 async def create_track(db, file_path, relative_path, sync=True, file_name="file.mp3"):
     """テスト用トラック作成ヘルパー (SyncServiceで読み込まれる用)"""
