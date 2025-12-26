@@ -1,0 +1,78 @@
+services:
+  backend:
+    build:
+      context: ../
+      dockerfile: docker/backend/Dockerfile
+    container_name: syncterra-backend-test
+    ports:
+      - "8000:8000"
+    environment:
+      - DOCKER_DEFAULT_SCAN_PATHS=["/music"]
+      - TZ=Asia/Tokyo
+      # Test Environment Settings
+      - DOCKER_SYNC_MODE=rsync
+      - DOCKER_FTP_HOST=ftp
+      - DOCKER_FTP_PORT=21
+      - DOCKER_FTP_USER=testuser
+      - DOCKER_FTP_PASS=password
+      - DOCKER_RSYNC_HOST=rsync
+      - DOCKER_RSYNC_PORT=2222
+      - DOCKER_RSYNC_USER=testuser
+      - DOCKER_RSYNC_USE_KEY=1
+      - DOCKER_RSYNC_KEY_PATH=/root/.ssh/id_rsa
+      - DOCKER_RSYNC_DEST=/data
+    volumes:
+      - ../db_test:/app/db
+      - ${HOME}/Music:/music/default:ro
+      - ssh_shared:/shared_ssh
+    restart: unless-stopped
+    depends_on:
+      - ftp
+      - rsync
+
+  frontend:
+    build:
+      context: ../
+      dockerfile: docker/frontend/Dockerfile
+    container_name: syncterra-frontend-test
+    ports:
+      - "8280:80"
+    environment:
+      - TZ=Asia/Tokyo
+    restart: unless-stopped
+
+  ftp:
+    image: fauria/vsftpd
+    container_name: syncterra-ftp-test
+    environment:
+      - FTP_USER=testuser
+      - FTP_PASS=password
+      - PASV_MIN_PORT=21100
+      - PASV_MAX_PORT=21110
+      - FILE_OPEN_MODE=0777
+      - LOCAL_UMASK=000
+    volumes:
+      - ../test_data/ftp:/home/vsftpd
+    ports:
+      - "21:21"
+      - "21100-21110:21100-21110"
+
+  rsync:
+    build:
+      context: .
+      dockerfile: rsync/Dockerfile
+    container_name: syncterra-rsync-test
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Tokyo
+      - USER_NAME=testuser
+      - PASSWORD_ACCESS=false
+    volumes:
+      - ../test_data/rsync:/data
+      - ssh_shared:/shared_ssh
+    ports:
+      - "2222:2222"
+
+volumes:
+  ssh_shared:
