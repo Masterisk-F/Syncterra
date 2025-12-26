@@ -96,6 +96,7 @@ npm run dev
 ### 3. アプリケーションへのアクセス
 
 ブラウザで `http://localhost:5173` にアクセスしてください。
+フロントエンドのプロキシ設定により、APIリクエストは自動的にバックエンドに転送されます。
 
 ## Dockerでの実行 (Usage with Docker)
 
@@ -110,7 +111,7 @@ docker-compose -f docker/docker-compose.yml up --build -d
 ### 2. アプリケーションへのアクセス
 
 *   **Web UI**: `http://localhost:8280`
-*   **API Docs**: `http://localhost:8000/docs`
+*   **API Docs**: `http://localhost:8280/api/docs`
 
 ### 3. 注意事項
 

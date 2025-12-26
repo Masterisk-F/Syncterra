@@ -15,15 +15,26 @@ interface UseWebSocketReturn {
 export const useWebSocket = (
     onMessage: (message: string) => void,
     onProgress?: (progress: number) => void,
-    url: string = 'ws://localhost:8000/ws/status'
+    url?: string
 ): UseWebSocketReturn => {
     const [isConnected, setIsConnected] = useState(false);
     const ws = useRef<WebSocket | null>(null);
     const reconnectTimeout = useRef<number | undefined>(undefined);
 
+    // Get WebSocket URL dynamically if not provided
+    const getWsUrl = useCallback(() => {
+        if (url) return url;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        // In dev (Vite), it might be localhost:5173, but we want it to go through the proxy.
+        // In prod, it's the same host.
+        return `${protocol}//${host}/ws/status`;
+    }, [url]);
+
     const connect = useCallback(() => {
         try {
-            ws.current = new WebSocket(url);
+            const socketUrl = getWsUrl();
+            ws.current = new WebSocket(socketUrl);
 
             ws.current.onopen = () => {
                 console.log('WebSocket connected');

@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { AxiosInstance, AxiosError } from 'axios';
 
 // 開発環境のベースURL
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // Axiosインスタンスの作成
 export const apiClient: AxiosInstance = axios.create({

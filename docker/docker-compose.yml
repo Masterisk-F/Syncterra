@@ -7,8 +7,8 @@ services:
     
     # ADB接続を使用する場合のみ network_mode: "host" を有効にしてください。
     # network_mode: "host"
-    ports:
-      - "8000:8000"
+    # ports:
+    #   - "8000:8000"
 
     environment:
       - DOCKER_DEFAULT_SCAN_PATHS=["/music"]
