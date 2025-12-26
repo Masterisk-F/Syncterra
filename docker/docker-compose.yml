@@ -19,11 +19,10 @@ services:
       - ../db:/app/db
       
       # SSH鍵の共有
-      # 重要: ホスト上に鍵ファイル (syncterra_rsa, syncterra_rsa.pub) が既に存在する場合のみ、以下のファイルバインドを使用してください。
-      # まだ鍵が存在しない場合は、ディレクトリごとマウント (- ${HOME}/.ssh:/root/.ssh) して起動してください。
+      # ホスト上に鍵ファイルが既に存在する場合のみ、以下のファイルバインドを使用してください。
       # ファイルが存在しない状態でファイルバインドを行うと、Dockerがディレクトリとして作成してしまいエラーになります。
-      - ${HOME}/.ssh/syncterra_rsa:/root/.ssh/syncterra_rsa
-      - ${HOME}/.ssh/syncterra_rsa.pub:/root/.ssh/syncterra_rsa.pub
+      - ${HOME}/.ssh/id_ed25519:/root/.ssh/syncterra_rsa
+      - ${HOME}/.ssh/id_ed25519.pub:/root/.ssh/syncterra_rsa.pub
       
       # 音楽ディレクトリのマウント (:ro を付けることでRead Onlyになります)
       - ${HOME}/Music:/music/default:ro
