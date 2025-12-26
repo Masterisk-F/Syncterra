@@ -16,7 +16,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, GridApi, GridReadyEvent, IRowNode, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
+import type { ColDef, GridApi, GridReadyEvent, IRowNode, ICellRendererParams, ValueFormatterParams, CellStyle } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import { useMantineColorScheme } from '@mantine/core';
 import {
@@ -284,7 +284,7 @@ export default function PlaylistPage() {
             field: 'msg',
             headerName: '!',
             width: 50,
-            cellStyle: { textAlign: 'center' },
+            cellStyle: { textAlign: 'center' } as CellStyle,
             checkboxSelection: true,
             headerCheckboxSelection: true,
         },
@@ -315,7 +315,7 @@ export default function PlaylistPage() {
                 );
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as any,
+            cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as CellStyle,
         },
         {
             field: 'title',
@@ -356,14 +356,14 @@ export default function PlaylistPage() {
             field: 'track_num',
             headerName: '#',
             width: 80,
-            cellStyle: { textAlign: 'center' },
+            cellStyle: { textAlign: 'center' } as CellStyle,
         },
         {
             field: 'duration',
             headerName: '長さ',
             width: 90,
             valueFormatter: (params: ValueFormatterParams) => formatDuration(params.value),
-            cellStyle: { textAlign: 'right' },
+            cellStyle: { textAlign: 'right' } as CellStyle,
         },
         {
             field: 'file_name',
