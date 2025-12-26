@@ -64,7 +64,7 @@ export default function AudioListPage() {
             // APIのTrack型をフロント型に変換
             const frontendTracks: Track[] = tracks.map((t: ApiTrack) => ({
                 id: t.id,
-                msg: t.msg ?? '',
+                msg: t.missing ? '!' : (t.msg ?? ''),
                 sync: t.sync,
                 title: t.title || '',
                 artist: t.artist || '',

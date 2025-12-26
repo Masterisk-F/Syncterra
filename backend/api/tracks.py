@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Optional
@@ -20,6 +21,7 @@ class TrackModel(BaseModel):
     sync: bool
     relative_path: Optional[str]
     msg: Optional[str]
+    missing: bool = False
 
     # Missing fields
     duration: Optional[int] = None
@@ -75,3 +77,11 @@ async def update_track(
 
     await db.commit()
     return {"status": "ok", "id": id}
+
+
+@router.delete("/missing")
+async def delete_missing_tracks(db: AsyncSession = Depends(get_db)):
+    # missing=True のレコードを削除する
+    result = await db.execute(delete(Track).where(Track.missing == True))
+    await db.commit()
+    return {"status": "ok", "deleted_count": result.rowcount}

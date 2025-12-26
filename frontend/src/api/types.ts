@@ -15,6 +15,7 @@ export interface Track {
     sync: boolean;
     relative_path: string | null;
     msg: string | null;
+    missing?: boolean;
     // New fields
     album_artist: string | null;
     composer: string | null;
