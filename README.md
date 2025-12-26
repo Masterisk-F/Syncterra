@@ -2,19 +2,24 @@
 
 Syncterraは、PC上の音声ファイルをデバイスと同期するためのWebアプリケーションです。
 
+## スクリーンショット (Screenshots)
+
+![音楽ファイル一覧](./docs/images/music_list.jpeg)
+![プレイリスト管理](./docs/images/playlists.jpeg)
+![設定画面](./docs/images/settings.jpeg)
+
 ## 主な機能 (Features)
 
 ### 音楽ファイル一覧
 PC上の音楽ファイルを一覧表示し、同期対象の選択やメタデータの確認が可能です。
-![音楽ファイル一覧](./docs/images/music_list.jpeg)
 
 ### プレイリスト管理
 Web UI上で楽曲情報やプレイリストを一元管理できます。
-![プレイリスト管理](./docs/images/playlists.jpeg)
 
 ### 設定画面
 同期方式（ADB, FTP, Rsync）やディレクトリ設定、除外設定などを柔軟に行えます。
-![設定画面](./docs/images/settings.jpeg)
+> [!WARNING]
+> ADB同期モードはテストが行われていないため、動作が不安定な可能性があります。
 
 ## システムアーキテクチャ (System Architecture)
 
