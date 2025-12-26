@@ -351,7 +351,8 @@ class RsyncSynchronizer(AudioSynchronizer):
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
             )
             for line in proc.stdout:
-                self.log(line.strip())
+                if not line.rstrip().endswith("/"):  # ディレクトリのログは表示しない
+                    self.log(line.strip())
             proc.wait()
 
             if proc.returncode != 0:
