@@ -255,3 +255,23 @@ def patch_db_session(temp_db):
     # パッチ終了
     for p in patches:
         p.stop()
+
+
+@pytest.fixture(autouse=True)
+def patch_init_db():
+    """
+    startupイベントでのinit_db実行を無効化するFixture。
+    
+    理由:
+    1. テスト環境ではtemp_db fixtureがテーブル作成を行うためredundant。
+    2. init_dbがグローバルなengine(ファイルDB)を使用するため、
+       テスト中に意図せずファイルDBへの接続/スレッド作成が発生し、
+       pytestがハングする原因になる可能性がある。
+    """
+    from unittest.mock import patch, AsyncMock
+    
+    # backend.mainですでにimportされているinit_dbをパッチする必要がある
+    # AsyncMockを使用してawait可能なモックにする
+    with patch("backend.main.init_db", new_callable=AsyncMock) as mock_main_init, \
+         patch("backend.db.database.init_db", new_callable=AsyncMock) as mock_db_init:
+        yield

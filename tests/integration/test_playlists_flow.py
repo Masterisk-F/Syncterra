@@ -10,22 +10,9 @@ Integration Test: Playlists API Flow
 import pytest
 from httpx import AsyncClient, ASGITransport
 from backend.main import app
-from backend.db.database import init_db
 from backend.db.models import Playlist, PlaylistTrack, Track
 import pytest_asyncio
 from sqlalchemy import delete
-
-
-@pytest_asyncio.fixture(scope="function")
-async def client():
-    """テスト用HTTPクライアント"""
-    await init_db()
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        yield ac
-
-
 @pytest_asyncio.fixture(scope="function")
 async def seed_data(temp_db):
     """テスト用のトラックとプレイリストをセットアップ"""
@@ -74,7 +61,7 @@ async def test_create_playlist(client, seed_data):
     2. レスポンスに id, name が含まれること
     3. tracks は空リストであること
     """
-    response = await client.post("/api/playlists", json={"name": "Test Playlist"})
+    response = client.post("/api/playlists", json={"name": "Test Playlist"})
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Test Playlist"
@@ -94,8 +81,8 @@ async def test_create_duplicate_playlist(client, seed_data):
     1. 2回目はステータスコード 400 が返ること
     2. エラーメッセージに「既に使用されています」が含まれること
     """
-    await client.post("/api/playlists", json={"name": "Duplicate"})
-    response = await client.post("/api/playlists", json={"name": "Duplicate"})
+    client.post("/api/playlists", json={"name": "Duplicate"})
+    response = client.post("/api/playlists", json={"name": "Duplicate"})
     assert response.status_code == 400
     assert "既に使用されています" in response.json()["detail"]
 
@@ -114,10 +101,10 @@ async def test_get_playlists(client, seed_data):
     2. 作成したプレイリストが全て取得できること
     """
     # プレイリスト作成
-    await client.post("/api/playlists", json={"name": "Playlist 1"})
-    await client.post("/api/playlists", json={"name": "Playlist 2"})
+    client.post("/api/playlists", json={"name": "Playlist 1"})
+    client.post("/api/playlists", json={"name": "Playlist 2"})
 
-    response = await client.get("/api/playlists")
+    response = client.get("/api/playlists")
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 2
@@ -139,12 +126,12 @@ async def test_get_playlist_by_id(client, seed_data):
     1. ステータスコード 200 が返ること
     2. 作成したプレイリストの情報が取得できること
     """
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "Detail Test"}
     )
     playlist_id = create_response.json()["id"]
 
-    response = await client.get(f"/api/playlists/{playlist_id}")
+    response = client.get(f"/api/playlists/{playlist_id}")
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Detail Test"
@@ -162,7 +149,7 @@ async def test_get_nonexistent_playlist(client, seed_data):
     期待値:
     1. ステータスコード 404 が返ること
     """
-    response = await client.get("/api/playlists/9999")
+    response = client.get("/api/playlists/9999")
     assert response.status_code == 404
 
 
@@ -179,18 +166,18 @@ async def test_update_playlist_name(client, seed_data):
     1. ステータスコード 200 が返ること
     2. GET で取得したプレイリスト名が更新されていること
     """
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "Old Name"}
     )
     playlist_id = create_response.json()["id"]
 
-    response = await client.put(
+    response = client.put(
         f"/api/playlists/{playlist_id}", json={"name": "New Name"}
     )
     assert response.status_code == 200
 
     # 確認
-    get_response = await client.get(f"/api/playlists/{playlist_id}")
+    get_response = client.get(f"/api/playlists/{playlist_id}")
     assert get_response.json()["name"] == "New Name"
 
 
@@ -207,16 +194,16 @@ async def test_delete_playlist(client, seed_data):
     1. ステータスコード 200 が返ること
     2. 削除後に GET すると 404 が返ること
     """
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "To Delete"}
     )
     playlist_id = create_response.json()["id"]
 
-    response = await client.delete(f"/api/playlists/{playlist_id}")
+    response = client.delete(f"/api/playlists/{playlist_id}")
     assert response.status_code == 200
 
     # 削除確認
-    get_response = await client.get(f"/api/playlists/{playlist_id}")
+    get_response = client.get(f"/api/playlists/{playlist_id}")
     assert get_response.status_code == 404
 
 
@@ -237,21 +224,21 @@ async def test_add_tracks_to_playlist(client, seed_data):
     tracks = seed_data["tracks"]
     
     # プレイリスト作成
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "With Tracks"}
     )
     playlist_id = create_response.json()["id"]
 
     # 曲を追加
     track_ids = [t.id for t in tracks]
-    response = await client.put(
+    response = client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": track_ids}
     )
     assert response.status_code == 200
     assert response.json()["track_count"] == 2
 
     # 確認
-    get_response = await client.get(f"/api/playlists/{playlist_id}")
+    get_response = client.get(f"/api/playlists/{playlist_id}")
     playlist_data = get_response.json()
     assert len(playlist_data["tracks"]) == 2
     assert playlist_data["tracks"][0]["order"] == 0
@@ -274,25 +261,25 @@ async def test_reorder_playlist_tracks(client, seed_data):
     tracks = seed_data["tracks"]
     
     # プレイリスト作成と曲追加
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "Reorder Test"}
     )
     playlist_id = create_response.json()["id"]
     
     track_ids = [t.id for t in tracks]
-    await client.put(
+    client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": track_ids}
     )
 
     # 順序を逆にする
     reversed_ids = list(reversed(track_ids))
-    response = await client.put(
+    response = client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": reversed_ids}
     )
     assert response.status_code == 200
 
     # 確認
-    get_response = await client.get(f"/api/playlists/{playlist_id}")
+    get_response = client.get(f"/api/playlists/{playlist_id}")
     playlist_data = get_response.json()
     assert playlist_data["tracks"][0]["track_id"] == reversed_ids[0]
     assert playlist_data["tracks"][1]["track_id"] == reversed_ids[1]
@@ -315,25 +302,25 @@ async def test_remove_tracks_from_playlist(client, seed_data):
     tracks = seed_data["tracks"]
     
     # プレイリスト作成と曲追加
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "Remove Test"}
     )
     playlist_id = create_response.json()["id"]
     
     track_ids = [t.id for t in tracks]
-    await client.put(
+    client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": track_ids}
     )
 
     # 1つだけ残す
-    response = await client.put(
+    response = client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": [track_ids[0]]}
     )
     assert response.status_code == 200
     assert response.json()["track_count"] == 1
 
     # 確認
-    get_response = await client.get(f"/api/playlists/{playlist_id}")
+    get_response = client.get(f"/api/playlists/{playlist_id}")
     playlist_data = get_response.json()
     assert len(playlist_data["tracks"]) == 1
 
@@ -355,25 +342,25 @@ async def test_clear_playlist_tracks(client, seed_data):
     tracks = seed_data["tracks"]
     
     # プレイリスト作成と曲追加
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "Clear Test"}
     )
     playlist_id = create_response.json()["id"]
     
     track_ids = [t.id for t in tracks]
-    await client.put(
+    client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": track_ids}
     )
 
     # 全削除
-    response = await client.put(
+    response = client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": []}
     )
     assert response.status_code == 200
     assert response.json()["track_count"] == 0
 
     # 確認
-    get_response = await client.get(f"/api/playlists/{playlist_id}")
+    get_response = client.get(f"/api/playlists/{playlist_id}")
     playlist_data = get_response.json()
     assert len(playlist_data["tracks"]) == 0
 
@@ -391,12 +378,12 @@ async def test_add_invalid_track_ids(client, seed_data):
     1. ステータスコード 400 が返ること
     2. エラーメッセージに「存在しないトラックID」が含まれること
     """
-    create_response = await client.post(
+    create_response = client.post(
         "/api/playlists", json={"name": "Invalid Tracks"}
     )
     playlist_id = create_response.json()["id"]
 
-    response = await client.put(
+    response = client.put(
         f"/api/playlists/{playlist_id}/tracks", json={"track_ids": [9999, 10000]}
     )
     assert response.status_code == 400
