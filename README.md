@@ -1,27 +1,29 @@
+English | [日本語](./README.jp.md)
+
 # Syncterra
 
-Syncterraは、PC上の音声ファイルをデバイスと同期するためのWebアプリケーションです。
+Syncterra is a web application designed to synchronize audio files from your PC to your devices.
 
-## スクリーンショット (Screenshots)
+## Screenshots
 
-![音楽ファイル一覧](./docs/images/music_list.jpeg)
-![プレイリスト管理](./docs/images/playlists.jpeg)
-![設定画面](./docs/images/settings.jpeg)
+![Audio File List](./docs/images/music_list.jpeg)
+![Playlist Management](./docs/images/playlists.jpeg)
+![Settings Screen](./docs/images/settings.jpeg)
 
-## 主な機能 (Features)
+## Key Features
 
-### 音楽ファイル一覧
-PC上の音楽ファイルを一覧表示し、同期対象の選択やメタデータの確認が可能です。
+### Audio File List
+View a list of audio files on your PC, select files for synchronization, and check metadata.
 
-### プレイリスト管理
-Web UI上で楽曲情報やプレイリストを一元管理できます。
+### Playlist Management
+Centrally manage track information and playlists on the Web UI.
 
-### 設定画面
-同期方式（ADB, FTP, Rsync）やディレクトリ設定、除外設定などを柔軟に行えます。
+### Settings Screen
+Flexibly configure synchronization methods (ADB, FTP, Rsync), directory settings, exclusion settings, and more.
 > [!WARNING]
-> ADB同期モードはテストが行われていないため、動作が不安定な可能性があります。
+> The ADB synchronization mode has not been thoroughly tested, so it may be unstable.
 
-## システムアーキテクチャ (System Architecture)
+## System Architecture
 
 ```mermaid
 graph TD
@@ -38,28 +40,28 @@ graph TD
     end
 ```
 
-本システムは、モダンなWeb技術とPythonの強力なバックエンド処理を組み合わせたアーキテクチャを採用しています。
+The system employs an architecture that combines modern web technologies with Python's powerful backend processing capabilities.
 
-- **Frontend**: React (Vite) を採用し、高速でインタラクティブなUIを提供。AG Gridによる大量のデータ操作と、WebSocketを通じたリアルタイムな同期ログ表示を実現しています。
-- **Backend**: FastAPI を使用し、非同期処理による高パフォーマンスなAPIを提供。
-- **Data Management**: 設定、プレイリスト、楽曲管理情報はすべて SQLite に保存され、高速な検索と安定した動作を実現しています。
-- **Core Engine**: `ADB`, `Rsync`, `FTP` の3つのプロトコルを抽象化した同期エンジン (`AudioSynchronizer`) を実装し、柔軟なデバイス環境に対応可能です。
+- **Frontend**: Utilizes React (Vite) to provide a fast and interactive UI. It features large-scale data operations powered by AG Grid and real-time synchronization log display via WebSockets.
+- **Backend**: Uses FastAPI to deliver high-performance API services through asynchronous processing.
+- **Data Management**: All settings, playlists, and track management information are stored in SQLite, ensuring fast searches and stable operation.
+- **Core Engine**: Implements a synchronization engine (`AudioSynchronizer`) that abstracts the `ADB`, `Rsync`, and `FTP` protocols, allowing for compatibility with diverse device environments.
 
-## 前提条件 (Prerequisites)
+## Prerequisites
 
 - **Runtime**:
     - Python 3.8+
-    - Node.js (v18+ 推奨)
-    - ADB (Android Debug Bridge) - ADB同期モードを使用する場合
+    - Node.js (v18+ recommended)
+    - ADB (Android Debug Bridge) - If using ADB sync mode
 - **Tools**:
-    - [uv](https://github.com/astral-sh/uv) (Pythonパッケージ管理)
-    - npm (Nodeパッケージ管理)
+    - [uv](https://github.com/astral-sh/uv) (Python package management)
+    - npm (Node package management)
 
-## セットアップ (Installation & Setup)
+## Installation & Setup
 
 ### Backend
 
-依存関係をインストールします。
+Install the required dependencies:
 
 ```bash
 uv sync
@@ -67,66 +69,66 @@ uv sync
 
 ### Frontend
 
-フロントエンドの依存関係をインストールします。
+Install the frontend dependencies:
 
 ```bash
 cd frontend
 npm install
 ```
 
-## 実行方法 (Usage)
+## Usage
 
-開発サーバーを起動して使用します。
+Start the development server to use the application.
 
-### 1. Backendの起動
+### 1. Start the Backend
 
 ```bash
 uv run uvicorn backend.main:app --reload
 ```
 
-### 2. Frontendの起動
+### 2. Start the Frontend
 
-別ターミナルで実行してください。
+Run this in a separate terminal.
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-### 3. アプリケーションへのアクセス
+### 3. Access the Application
 
-ブラウザで `http://localhost:5173` にアクセスしてください。
-フロントエンドのプロキシ設定により、APIリクエストは自動的にバックエンドに転送されます。
+Open your browser and navigate to `http://localhost:5173`.
+API requests will be automatically forwarded to the backend due to the frontend's proxy configuration.
 
-## Dockerでの実行 (Usage with Docker)
+## Usage with Docker
 
-Docker Composeを使用して、セットアップ不要でアプリケーションを起動できます。
+You can use Docker Compose to start the application without any manual setup.
 
-### 1. 起動
+### 1. Launch
 
 ```bash
 docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
-### 2. アプリケーションへのアクセス
+### 2. Access the Application
 
 *   **Web UI**: `http://localhost:8280`
 *   **API Docs**: `http://localhost:8280/api/docs`
 
-### 3. 注意事項
+### 3. Important Notes
 
-*   **音楽フォルダ**: デフォルトではホストの `~/Music` が `/music` としてマウントされ、自動的にスキャン対象となります。変更する場合は `docker/docker-compose.yml` の `volumes` セクションを編集してください。
-*   **データベース**: `db/` ディレクトリに SQLite データベースが永続化されます。
-*   **ADB同期**: Androidデバイスを同期する場合は、`docker-compose.yml` 内の `network_mode: "host"` を有効にする必要があります。
+*   **Music Folder**: By default, the host's `~/Music` directory is mounted to `/music` and will be automatically scanned. To change this, edit the `volumes` section of `docker/docker-compose.yml`.
+*   **Database**: The SQLite database is persisted in the `db/` directory.
+*   **ADB Sync**: When synchronizing with an Android device, you must enable `network_mode: "host"` in `docker-compose.yml`.
 
-## 技術スタック (Tech Stack)
+## Tech Stack
 
 - **Backend**: Python, FastAPI, SQLAlchemy (SQLite), aiosqlite, Websockets
 - **Frontend**: TypeScript, React, Vite, Mantine UI, AG Grid
 - **Others**: Mutagen (Audio Metadata), Adbutils
 
-## ライセンス (License)
+## License
 
-本ソフトウェアは **GPL v3 (GNU General Public License v3)** の下で公開されています。
-詳細については [LICENSE](./LICENSE) ファイルを参照してください。
-`mutagen` (GPL v2+) などのGPLライブラリを使用しているため、本ソフトウェアの派生物を配布する場合はGPL互換ライセンスを採用する必要があります。
+This software is released under the **GPL v3 (GNU General Public License v3)**.
+For more details, please refer to the [LICENSE](./LICENSE) file.
+Since it uses GPL libraries like `mutagen` (GPL v2+), any derivative works distributed must also adopt a GPL-compatible license.
