@@ -1,14 +1,13 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ValueFormatterParams, GridApi, GridReadyEvent, IRowNode, ICellRendererParams } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text, Badge } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconRefresh, IconDeviceFloppy, IconPlayerPlay, IconTerminal2 } from '@tabler/icons-react';
+import { IconRefresh, IconDeviceFloppy } from '@tabler/icons-react';
 import type { Track } from '../../types/track';
-import ProcessLogDrawer from './ProcessLogDrawer';
-import { getTracks, batchUpdateTracks, scanFiles, syncFiles } from '../../api';
-import { useWebSocket } from '../../api/useWebSocket';
+import { getTracks, batchUpdateTracks, scanFiles } from '../../api';
+import { useSync } from '../sync/SyncContext';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -48,14 +47,8 @@ export default function AudioListPage() {
     const [loading, setLoading] = useState(true);
     const { colorScheme } = useMantineColorScheme();
 
-    // Control Panel State
     const [isScanning, setIsScanning] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [logs, setLogs] = useState<string[]>([]);
-    const [isLogDrawerOpen, setIsLogDrawerOpen] = useState(false);
-
-    const isProcessing = isScanning || isSyncing;
+    const { isSyncing, isConnected } = useSync();
 
     const gridTheme = useMemo(() => {
         return colorScheme === 'dark'
@@ -63,53 +56,6 @@ export default function AudioListPage() {
             : themeQuartz;
     }, [colorScheme]);
 
-    // WebSocket接続 - ログとプログレス受信
-    const handleWebSocketMessage = useCallback((message: string) => {
-        const timestamp = new Date().toLocaleTimeString();
-        setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
-
-        // スキャン完了を検出してトラック一覧を再読み込み
-        if (message.includes('Scan complete')) {
-            const reloadTracks = async () => {
-                try {
-                    const tracks = await getTracks();
-                    const frontendTracks: Track[] = tracks.map((t) => ({
-                        id: t.id,
-                        msg: t.msg ?? '',
-                        sync: t.sync,
-                        title: t.title || '',
-                        artist: t.artist || '',
-                        album_artist: t.album_artist || '',
-                        composer: t.composer || '',
-                        album: t.album || '',
-                        track_num: t.track_num || '',
-                        length: t.duration || 0,
-                        file_name: t.file_name,
-                        file_path: t.file_path,
-                        file_path_to_relative: t.relative_path || '',
-                        codec: t.codec || '',
-                        size: 0, // Removed from plan
-                        added_date: t.added_date || '',
-                        update_date: t.last_modified || '',
-                    }));
-                    setRowData(frontendTracks);
-                    setIsScanning(false);
-                } catch (error) {
-                    console.error('Failed to reload tracks:', error);
-                }
-            };
-            reloadTracks();
-        }
-    }, []);
-
-    const handleWebSocketProgress = useCallback((progressValue: number) => {
-        setProgress(progressValue);
-    }, []);
-
-    const { isConnected } = useWebSocket(
-        handleWebSocketMessage,
-        handleWebSocketProgress
-    );
 
     // Load tracks from API
     useEffect(() => {
@@ -151,55 +97,19 @@ export default function AudioListPage() {
         loadTracks();
     }, []);
 
-    // Add log helper
-    const addLog = (message: string) => {
-        const timestamp = new Date().toLocaleTimeString();
-        setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
-    };
 
     // Scan実行
     const handleScan = async () => {
         setIsScanning(true);
-        setIsLogDrawerOpen(true);
-        setProgress(0);
-        setLogs([]);
-        addLog('スキャンを開始しました...');
-
         try {
             await scanFiles();
-            // トラック一覧の再読み込みはWebSocketの"Scan complete"メッセージで実行
         } catch (error) {
             console.error('Scan failed:', error);
-            addLog('スキャン失敗: ' + error);
             notifications.show({ title: 'エラー', message: 'スキャンに失敗しました', color: 'red' });
             setIsScanning(false);
         }
     };
 
-    // Sync実行
-    const handleSync = async () => {
-        setIsSyncing(true);
-        setIsLogDrawerOpen(true);
-        setProgress(0);
-        setLogs([]);
-        addLog('同期を開始しました...');
-
-        const syncCount = rowData.filter(r => r.sync).length;
-        addLog(`同期対象: ${syncCount} ファイル`);
-
-        try {
-            await syncFiles();
-            addLog('同期完了');
-            notifications.show({ title: '同期完了', message: 'ファイルの同期が完了しました', color: 'green' });
-        } catch (error) {
-            console.error('Sync failed:', error);
-            addLog('同期失敗: ' + error);
-            notifications.show({ title: 'エラー', message: '同期に失敗しました', color: 'red' });
-        } finally {
-            setIsSyncing(false);
-            setProgress(100);
-        }
-    };
 
     // Save Sync Settings - syncフラグをバックエンドに保存
     const handleSaveSync = async () => {
@@ -226,6 +136,8 @@ export default function AudioListPage() {
             });
         }
     };
+
+    const isProcessing = isScanning || isSyncing;
 
     // Sync Toggle Handler
     const handleSyncToggle = (id: number, currentValue: boolean) => {
@@ -456,39 +368,10 @@ export default function AudioListPage() {
                         >
                             設定保存
                         </Button>
-
-                        <Button
-                            leftSection={<IconPlayerPlay size={20} />}
-                            onClick={handleSync}
-                            loading={isSyncing}
-                            disabled={isScanning}
-                            color="green"
-                            size="sm"
-                        >
-                            同期実行
-                        </Button>
                     </Group>
-
-                    <Button
-                        leftSection={<IconTerminal2 size={20} />}
-                        onClick={() => setIsLogDrawerOpen(true)}
-                        variant="subtle"
-                        size="sm"
-                        color="gray"
-                    >
-                        ログ
-                    </Button>
                 </Group>
             </Paper>
 
-            <ProcessLogDrawer
-                opened={isLogDrawerOpen}
-                onClose={() => setIsLogDrawerOpen(false)}
-                isProcessing={isProcessing}
-                processName={isScanning ? 'スキャン' : '同期'}
-                progress={progress}
-                logs={logs}
-            />
 
             <Paper
                 withBorder
