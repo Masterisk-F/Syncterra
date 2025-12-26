@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, ValueFormatterParams, GridApi, GridReadyEvent, IRowNode, ICellRendererParams } from 'ag-grid-community';
+import type { ColDef, ValueFormatterParams, GridApi, GridReadyEvent, IRowNode, ICellRendererParams, CellStyle } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text, Badge } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -194,7 +194,7 @@ export default function AudioListPage() {
             field: 'msg',
             headerName: '!',
             width: 50,
-            cellStyle: { textAlign: 'center' },
+            cellStyle: { textAlign: 'center' } as CellStyle,
         },
         {
             field: 'sync',
@@ -223,7 +223,7 @@ export default function AudioListPage() {
                     </div>
                 );
             },
-            cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as React.CSSProperties,
+            cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as CellStyle,
         },
         {
             field: 'title',
@@ -264,14 +264,14 @@ export default function AudioListPage() {
             field: 'track_num',
             headerName: '#',
             width: 80,
-            cellStyle: { textAlign: 'center' },
+            cellStyle: { textAlign: 'center' } as CellStyle,
         },
         {
             field: 'length',
             headerName: '長さ',
             width: 90,
             valueFormatter: (params: ValueFormatterParams) => formatDuration(params.value),
-            cellStyle: { textAlign: 'right' },
+            cellStyle: { textAlign: 'right' } as CellStyle,
         },
         {
             field: 'file_name',
@@ -301,7 +301,7 @@ export default function AudioListPage() {
             headerName: 'サイズ',
             width: 110,
             valueFormatter: (params: ValueFormatterParams) => formatFileSize(params.value),
-            cellStyle: { textAlign: 'right' },
+            cellStyle: { textAlign: 'right' } as CellStyle,
         },
         {
             field: 'added_date',
