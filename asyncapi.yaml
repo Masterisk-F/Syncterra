@@ -1,0 +1,103 @@
+asyncapi: 2.6.0
+info:
+  title: Syncterra WebSocket API
+  version: 1.0.0
+  description: |
+    SyncterraアプリケーションのWebSocket API仕様。
+    スキャンと同期処理のリアルタイム進捗・ログを配信します。
+
+servers:
+  development:
+    url: ws://localhost:8000
+    protocol: ws
+    description: 開発環境のWebSocketサーバー
+
+channels:
+  /ws/status:
+    description: スキャン・同期処理の進捗とログメッセージを配信
+    subscribe:
+      summary: サーバーからのメッセージを受信
+      message:
+        oneOf:
+          - $ref: '#/components/messages/LogMessage'
+          - $ref: '#/components/messages/ProgressMessage'
+          - $ref: '#/components/messages/StatusMessage'
+          - $ref: '#/components/messages/PlainTextMessage'
+
+components:
+  messages:
+    LogMessage:
+      name: LogMessage
+      title: ログメッセージ
+      summary: 処理中のログメッセージ
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - type
+          - message
+        properties:
+          type:
+            type: string
+            const: log
+            description: メッセージタイプ識別子
+          message:
+            type: string
+            description: ログメッセージ本文
+            example: "スキャンを開始しました..."
+
+    ProgressMessage:
+      name: ProgressMessage
+      title: 進捗メッセージ
+      summary: 処理の進捗状況（0-100%）
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - type
+          - progress
+        properties:
+          type:
+            type: string
+            const: progress
+            description: メッセージタイプ識別子
+          progress:
+            type: integer
+            minimum: 0
+            maximum: 100
+            description: 進捗率（パーセント）
+            example: 45
+
+    StatusMessage:
+      name: StatusMessage
+      title: ステータスメッセージ
+      summary: 処理のステータス変更通知
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - type
+          - status
+        properties:
+          type:
+            type: string
+            const: status
+            description: メッセージタイプ識別子
+          status:
+            type: string
+            enum:
+              - started
+              - completed
+              - error
+            description: 処理ステータス
+            example: completed
+
+    PlainTextMessage:
+      name: PlainTextMessage
+      title: プレーンテキストメッセージ
+      summary: JSON以外のプレーンテキストメッセージ
+      contentType: text/plain
+      payload:
+        type: string
+        description: プレーンテキストのログメッセージ
+        example: "ファイルスキャン中: /music/album/song.mp3"
