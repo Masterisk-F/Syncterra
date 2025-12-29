@@ -404,6 +404,7 @@ export default function AudioListPage() {
                         animateRows={true}
                         theme={gridTheme}
                         context={{ handleSyncToggle }}
+                        getRowId={(params) => String(params.data.id)}
                     />
                 </div>
             </Paper>
