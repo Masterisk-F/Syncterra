@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, ValueFormatterParams, GridApi, GridReadyEvent, IRowNode, ICellRendererParams, CellStyle } from 'ag-grid-community';
+import type { ColDef, ValueFormatterParams, GridApi, GridReadyEvent, IRowNode, ICellRendererParams, CellStyle, CellKeyDownEvent } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import { Title, Paper, Stack, useMantineColorScheme, Button, Group, Loader, Text, Badge } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -154,6 +154,18 @@ export default function AudioListPage() {
     const onGridReady = (params: GridReadyEvent) => {
         setGridApi(params.api);
     };
+
+    // Space Key Handler for Sync Toggle
+    const onCellKeyDown = useCallback((event: CellKeyDownEvent) => {
+        if (event.event instanceof KeyboardEvent && (event.event.code === 'Space' || event.event.code === 'Enter')) {
+            const colId = event.column.getColId();
+            if (colId === 'sync' && event.data) {
+                // Prevent default scrolling behavior
+                event.event.preventDefault();
+                handleSyncToggle(event.data.id, event.data.sync);
+            }
+        }
+    }, []);
 
     // Batch Paste Handler (Ctrl+V)
     const handleContainerPaste = async () => {
@@ -404,6 +416,7 @@ export default function AudioListPage() {
                         animateRows={true}
                         theme={gridTheme}
                         context={{ handleSyncToggle }}
+                        onCellKeyDown={onCellKeyDown}
                         getRowId={(params) => String(params.data.id)}
                     />
                 </div>
