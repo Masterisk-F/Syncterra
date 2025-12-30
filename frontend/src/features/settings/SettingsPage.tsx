@@ -18,13 +18,15 @@ import {
     Modal
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import type { GridApi, GridReadyEvent } from 'ag-grid-community';
 import { notifications } from '@mantine/notifications';
-import { IconDeviceFloppy, IconDownload, IconInfoCircle, IconTrash } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconDownload, IconInfoCircle, IconTrash, IconTableMinus } from '@tabler/icons-react';
 import type { AppSettings, SyncMethod } from '../../types/settings';
 import { DEFAULT_SETTINGS } from '../../types/settings';
-import { getSettings, updateSetting, deleteMissingTracks } from '../../api';
+import { getSettings, updateSetting, deleteMissingTracks, getTracks, deleteTracks } from '../../api';
 import { apiClient } from '../../api/client';
-import type { Setting } from '../../api/types';
+import type { Setting, Track } from '../../api/types';
+import TrackDataGrid from '../audio-list/TrackDataGrid';
 
 // バックエンドの設定キーマッピング
 const SETTING_KEYS = {
@@ -86,6 +88,13 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [opened, { open, close }] = useDisclosure(false);
+
+    // Track Deletion States
+    const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);
+    const [confirmDeleteOpened, { open: openConfirmDelete, close: closeConfirmDelete }] = useDisclosure(false);
+    const [tracks, setTracks] = useState<Track[]>([]);
+    const [tracksLoading, setTracksLoading] = useState(false);
+    const [gridApi, setGridApi] = useState<GridApi | null>(null);
 
     // Load settings from API
     useEffect(() => {
@@ -195,6 +204,69 @@ export default function SettingsPage() {
                 color: 'red',
             });
         }
+    };
+
+    const handleLoadTracks = async () => {
+        setTracksLoading(true);
+        try {
+            const data = await getTracks();
+            setTracks(data);
+            openDeleteModal();
+        } catch (error) {
+            console.error('Failed to load tracks:', error);
+            notifications.show({
+                title: 'エラー',
+                message: 'トラック一覧の読み込みに失敗しました',
+                color: 'red',
+            });
+        } finally {
+            setTracksLoading(false);
+        }
+    };
+
+    const handleDeleteSelectedTracks = () => {
+        if (!gridApi) return;
+        const selectedNodes = gridApi.getSelectedNodes();
+        if (selectedNodes.length === 0) {
+            notifications.show({
+                title: '選択なし',
+                message: '削除するトラックを選択してください',
+                color: 'yellow',
+            });
+            return;
+        }
+        openConfirmDelete();
+    };
+
+    const executeDeleteTracks = async () => {
+        if (!gridApi) return;
+        const selectedNodes = gridApi.getSelectedNodes();
+        const ids = selectedNodes.map(node => node.data!.id);
+
+        closeConfirmDelete(); // Close confirmation
+
+        try {
+            await deleteTracks(ids);
+            notifications.show({
+                title: '成功',
+                message: 'トラック情報を削除しました',
+                color: 'green',
+            });
+            // Reload tracks to update list
+            const data = await getTracks();
+            setTracks(data);
+        } catch (error) {
+            console.error('Failed to delete tracks:', error);
+            notifications.show({
+                title: 'エラー',
+                message: '削除に失敗しました',
+                color: 'red',
+            });
+        }
+    };
+
+    const onGridReady = (params: GridReadyEvent) => {
+        setGridApi(params.api);
     };
 
     if (initialLoading) {
@@ -387,10 +459,14 @@ export default function SettingsPage() {
                         <Button color="red" variant="outline" onClick={open} leftSection={<IconTrash size={20} />}>
                             見えなくなったファイルの情報を削除
                         </Button>
+                        <Button color="red" variant="filled" onClick={handleLoadTracks} loading={tracksLoading} leftSection={<IconTableMinus size={20} />}>
+                            トラックを選択して削除
+                        </Button>
                     </Group>
                 </Stack>
             </Paper>
 
+            {/* Missing Tracks Deletion Modal */}
             <Modal opened={opened} onClose={close} title="確認" centered>
                 <Text size="sm">
                     スキャンで見つからなくなったファイル（Missing状態）をデータベースから完全に削除しますか？<br />
@@ -399,6 +475,52 @@ export default function SettingsPage() {
                 <Group justify="flex-end" mt="lg">
                     <Button variant="default" onClick={close}>キャンセル</Button>
                     <Button color="red" onClick={handleDeleteMissing}>削除</Button>
+                </Group>
+            </Modal>
+
+            {/* Track Selection & Deletion Modal */}
+            <Modal
+                opened={deleteModalOpened}
+                onClose={closeDeleteModal}
+                title="トラック情報の削除"
+                size="xl"
+                styles={{ body: { height: '80vh', display: 'flex', flexDirection: 'column' } }}
+            >
+                <Stack h="100%">
+                    <Text size="sm" c="dimmed">
+                        削除するトラックを選択してください。<br />
+                        ※データベースから情報が削除されるだけで、実際の音楽ファイルは削除されません。
+                    </Text>
+
+                    <Paper withBorder style={{ flex: 1, minHeight: 0 }}>
+                        <div style={{ height: '100%', width: '100%' }}>
+                            <TrackDataGrid
+                                tracks={tracks}
+                                onGridReady={onGridReady}
+                                readOnlySync={true}
+                                showSyncColumn={true}
+                            />
+                        </div>
+                    </Paper>
+
+                    <Group justify="flex-end">
+                        <Button variant="default" onClick={closeDeleteModal}>閉じる</Button>
+                        <Button color="red" onClick={handleDeleteSelectedTracks} leftSection={<IconTrash size={16} />}>
+                            選択したトラックを削除
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
+
+            {/* Confirm Delete Selected Modal */}
+            <Modal opened={confirmDeleteOpened} onClose={closeConfirmDelete} title="確認" centered zIndex={201}>
+                <Text size="sm">
+                    選択した {gridApi?.getSelectedNodes().length} 件のトラック情報を削除しますか？<br />
+                    （ファイル自体は削除されません）
+                </Text>
+                <Group justify="flex-end" mt="lg">
+                    <Button variant="default" onClick={closeConfirmDelete}>キャンセル</Button>
+                    <Button color="red" onClick={executeDeleteTracks}>削除</Button>
                 </Group>
             </Modal>
         </Stack>

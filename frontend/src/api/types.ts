@@ -22,6 +22,7 @@ export interface Track {
     track_num: string | null;
     duration: number | null;
     codec: string | null;
+    size: number | null;
     added_date: string | null;
     last_modified: string | null;
 }

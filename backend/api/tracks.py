@@ -45,6 +45,10 @@ class BatchTrackUpdate(BaseModel):
     sync: bool
 
 
+class TrackDeleteRequest(BaseModel):
+    ids: List[int]
+
+
 @router.get("", response_model=List[TrackModel])
 async def get_tracks(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Track))
@@ -83,5 +87,18 @@ async def update_track(
 async def delete_missing_tracks(db: AsyncSession = Depends(get_db)):
     # missing=True のレコードを削除する
     result = await db.execute(delete(Track).where(Track.missing == True))
+    await db.commit()
+    return {"status": "ok", "deleted_count": result.rowcount}
+
+
+@router.delete("/batch")
+async def delete_tracks_batch(
+    request: TrackDeleteRequest, db: AsyncSession = Depends(get_db)
+):
+    if not request.ids:
+        return {"status": "ok", "deleted_count": 0}
+
+    # 一括削除
+    result = await db.execute(delete(Track).where(Track.id.in_(request.ids)))
     await db.commit()
     return {"status": "ok", "deleted_count": result.rowcount}

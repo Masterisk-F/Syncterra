@@ -250,6 +250,11 @@ class ScannerService:
         return results
 
     def _extract_metadata(self, filepath: str) -> Optional[dict]:
+        try:
+            file_size = os.path.getsize(filepath)
+        except OSError:
+            file_size = None
+
         data = {
             "file_name": os.path.splitext(os.path.basename(filepath))[0],
             "title": None,
@@ -260,6 +265,7 @@ class ScannerService:
             "track_num": None,
             "duration": None,  # length
             "codec": None,
+            "size": file_size,
             "msg": None,
         }
 
