@@ -28,6 +28,7 @@ class Track(Base):
     track_num = Column(String)
     duration = Column(Integer)
     codec = Column(String)
+    size = Column(Integer)
     msg = Column(String)
     sync = Column(Boolean, default=False)
     missing = Column(Boolean, default=False)

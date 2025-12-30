@@ -1,74 +1,33 @@
-import { useState, useEffect, useMemo } from 'react';
+import { ActionIcon, Badge, Button, Card, Group, Loader, Modal, Paper, Stack, Text, TextInput, Title } from '@mantine/core';
+import type { GridApi, IRowNode } from 'ag-grid-community';
 import ReactDOM from 'react-dom';
-import {
-    Stack,
-    Paper,
-    Title,
-    Button,
-    Group,
-    Text,
-    Card,
-    ActionIcon,
-    Modal,
-    TextInput,
-    Loader,
-    Badge,
-} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, GridApi, GridReadyEvent, IRowNode, ICellRendererParams, ValueFormatterParams, CellStyle } from 'ag-grid-community';
-import { ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
-import { useMantineColorScheme } from '@mantine/core';
 import {
-    IconPlus,
-    IconTrash,
-    IconPencil,
-    IconMusicPlus,
     IconGripVertical,
+    IconMusicPlus,
+    IconPencil,
+    IconPlus,
+    IconTrash
 } from '@tabler/icons-react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { useState, useEffect } from 'react';
 import type { DropResult } from '@hello-pangea/dnd';
-import type { Playlist, TrackInPlaylist } from '../../api/types';
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
+
 import {
-    getPlaylists,
     createPlaylist,
-    updatePlaylist,
     deletePlaylist,
+    getPlaylists,
     getTracks,
-    updatePlaylistTracks,
+    updatePlaylist,
+    updatePlaylistTracks
 } from '../../api';
-import type { Track } from '../../api/types';
+import type { Playlist, Track, TrackInPlaylist } from '../../api/types';
+import TrackDataGrid from '../audio-list/TrackDataGrid';
 
-// AG Grid モジュール登録
-ModuleRegistry.registerModules([AllCommunityModule]);
-
-// 再生時間を分:秒表示にフォーマット
-const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
-
-// 日時フォーマット (YYYY-MM-DD HH:mm:ss)
-const formatDate = (dateStr: string): string => {
-    if (!dateStr) return '';
-    try {
-        const date = new Date(dateStr);
-        return date.toLocaleString('ja-JP', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        });
-    } catch {
-        return dateStr;
-    }
-};
+// プレイリスト一覧を読み込み
 
 export default function PlaylistPage() {
-    const { colorScheme } = useMantineColorScheme();
+    // const { colorScheme } = useMantineColorScheme(); // Unused
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
     const [loading, setLoading] = useState(true);
     const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -273,143 +232,9 @@ export default function PlaylistPage() {
         setEditedTracks(reorderedTracks);
     };
 
-    // AG Grid準備完了
-    const onGridReady = (params: GridReadyEvent) => {
-        setGridApi(params.api);
-    };
 
-    // AG Grid カラム定義（API型のTrackに存在するフィールドのみ）
-    const columnDefs = useMemo<ColDef<Track>[]>(() => [
-        {
-            field: 'msg',
-            headerName: '!',
-            width: 50,
-            cellStyle: { textAlign: 'center' } as CellStyle,
-            checkboxSelection: true,
-            headerCheckboxSelection: true,
-        },
-        {
-            field: 'sync',
-            headerName: '同期',
-            width: 70,
-            editable: false,
-            cellRenderer: (params: ICellRendererParams) => {
-                return (
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            height: '100%',
-                            width: '100%',
-                        }}
-                    >
-                        <input
-                            type="checkbox"
-                            checked={params.value}
-                            readOnly
-                            disabled
-                            style={{ margin: 0 }}
-                        />
-                    </div>
-                );
-            },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 0 } as CellStyle,
-        },
-        {
-            field: 'title',
-            headerName: 'タイトル',
-            width: 200,
-            filter: true,
-            sortable: true,
-        },
-        {
-            field: 'artist',
-            headerName: 'アーティスト',
-            width: 150,
-            filter: true,
-            sortable: true,
-        },
-        {
-            field: 'album_artist',
-            headerName: 'アルバムアーティスト',
-            width: 150,
-            filter: true,
-            sortable: true,
-        },
-        {
-            field: 'composer',
-            headerName: '作曲者',
-            width: 150,
-            filter: true,
-            sortable: true,
-        },
-        {
-            field: 'album',
-            headerName: 'アルバム',
-            width: 200,
-            filter: true,
-            sortable: true,
-        },
-        {
-            field: 'track_num',
-            headerName: '#',
-            width: 80,
-            cellStyle: { textAlign: 'center' } as CellStyle,
-        },
-        {
-            field: 'duration',
-            headerName: '長さ',
-            width: 90,
-            valueFormatter: (params: ValueFormatterParams) => formatDuration(params.value),
-            cellStyle: { textAlign: 'right' } as CellStyle,
-        },
-        {
-            field: 'file_name',
-            headerName: 'ファイル名',
-            width: 200,
-            filter: true,
-        },
-        {
-            field: 'file_path',
-            headerName: 'ファイルパス',
-            width: 300,
-            filter: true,
-        },
-        {
-            field: 'codec',
-            headerName: 'コーデック',
-            width: 100,
-            filter: true,
-        },
-        {
-            field: 'added_date',
-            headerName: '追加日時',
-            width: 170,
-            sortable: true,
-            valueFormatter: (params: ValueFormatterParams) => formatDate(params.value),
-        },
-        {
-            field: 'last_modified',
-            headerName: '更新日時',
-            width: 170,
-            sortable: true,
-            valueFormatter: (params: ValueFormatterParams) => formatDate(params.value),
-        },
-    ], []);
 
-    const defaultColDef = useMemo<ColDef>(() => ({
-        resizable: true,
-        sortable: false,
-        filter: false,
-    }), []);
 
-    const gridTheme = useMemo(() => {
-        return colorScheme === 'dark'
-            ? themeQuartz.withPart(colorSchemeDarkBlue)
-            : themeQuartz;
-    }, [colorScheme]);
 
     // ドラッグ&ドロップで曲順変更
     const handleDragEnd = (result: DropResult) => {
@@ -680,18 +505,13 @@ export default function PlaylistPage() {
                         }}
                     >
                         <div style={{ height: '100%', width: '100%' }}>
-                            <AgGridReact<Track>
-                                onGridReady={onGridReady}
-                                rowData={allTracks}
-                                columnDefs={columnDefs}
-                                defaultColDef={defaultColDef}
-                                rowSelection="multiple"
-                                enableRangeSelection={false}
-                                enableCellTextSelection={true}
-                                suppressMenuHide={true}
-                                animateRows={true}
-                                theme={gridTheme}
-                            />
+                            <div style={{ height: '100%', width: '100%' }}>
+                                <TrackDataGrid
+                                    onGridReady={params => setGridApi(params.api)}
+                                    tracks={allTracks}
+                                    readOnlySync={true}
+                                />
+                            </div>
                         </div>
                     </Paper>
 

@@ -32,6 +32,10 @@ export const deleteMissingTracks = async (): Promise<void> => {
     await apiClient.delete('/api/tracks/missing');
 };
 
+export const deleteTracks = async (ids: number[]): Promise<void> => {
+    await apiClient.delete('/api/tracks/batch', { data: { ids } });
+};
+
 // System API
 
 export const scanFiles = async (): Promise<void> => {
