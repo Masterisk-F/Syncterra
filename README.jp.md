@@ -2,28 +2,48 @@
 
 # Syncterra
 
-Syncterraは、PC上の音声ファイルをデバイスと同期するためのWebアプリケーションです。
+Syncterraは、PC上の音楽ファイルをデバイスと同期するためのWebアプリケーションです。
 
-## スクリーンショット (Screenshots)
+## 主な機能
+
+### 音楽ファイルの同期管理
+PC上の指定したディレクトリの音楽ファイルのうち、選択した楽曲だけを同期することができます。
+
+通常のファイルコピーや、robocopy/rsyncによる単純なディレクトリ同期では、”アルバムのうちいくつかの曲だけを同期する”といった操作は簡単には行えません。後から特定の曲を追加したり削除したりする場合はなおさら手間がかかります。
+
+Syncterraでは、iTunesの同期方法を模して、ファイルごとに同期要否を設定できます。これにより、個別の楽曲の同期管理を容易に行うことができます。
+
+### プレイリスト管理
+Syncterra上でプレイリストの作成・編集が行えます。
+
+### 同期方式
+同期方式はADB, FTP, Rsyncから選択できます。
+#### ADB
+ADB (Android Debug Bridge)を使用してAndroid端末に楽曲ファイルを転送します。Syncterraが動作するマシンからADBコマンドでAndroid端末に接続できる環境が必要です。
+> [!WARNING]
+> ADB同期モードはテストが行われていないため、動作が不安定な可能性があります。
+
+#### FTP
+FTP (File Transfer Protocol)を使用して端末に楽曲ファイルを転送します。
+
+被同期端末側でFTPサーバを起動してください。
+
+Android端末であれば[Ftp Server](https://play.google.com/store/apps/details?id=com.theolivetree.ftpserver&hl=ja)などのアプリを使用してください。
+
+#### Rsync
+Rsyncを使用して端末に楽曲ファイルを転送します。
+
+被同期端末側でRsyncをインストールしSSHサーバを起動してください。ただし同期先がローカルディレクトリの場合はSSHサーバは不要です。
+
+Android端末であれば[Sshd4a](https://github.com/tfonteyn/Sshd4a)などのアプリを使用してください。
+
+## スクリーンショット
 
 ![音楽ファイル一覧](./docs/images/music_list.jpeg)
 ![プレイリスト管理](./docs/images/playlists.jpeg)
 ![設定画面](./docs/images/settings.jpeg)
 
-## 主な機能 (Features)
-
-### 音楽ファイル一覧
-PC上の音楽ファイルを一覧表示し、同期対象の選択やメタデータの確認が可能です。
-
-### プレイリスト管理
-Web UI上で楽曲情報やプレイリストを一元管理できます。
-
-### 設定画面
-同期方式（ADB, FTP, Rsync）やディレクトリ設定、除外設定などを柔軟に行えます。
-> [!WARNING]
-> ADB同期モードはテストが行われていないため、動作が不安定な可能性があります。
-
-## システムアーキテクチャ (System Architecture)
+## システムアーキテクチャ
 
 ```mermaid
 graph TD
@@ -40,14 +60,14 @@ graph TD
     end
 ```
 
-本システムは、モダンなWeb技術とPythonの強力なバックエンド処理を組み合わせたアーキテクチャを採用しています。
+Webベースのアーキテクチャとしています。
 
-- **Frontend**: React (Vite) を採用し、高速でインタラクティブなUIを提供。AG Gridによる大量のデータ操作と、WebSocketを通じたリアルタイムな同期ログ表示を実現しています。
-- **Backend**: FastAPI を使用し、非同期処理による高パフォーマンスなAPIを提供。
-- **Data Management**: 設定、プレイリスト、楽曲管理情報はすべて SQLite に保存され、高速な検索と安定した動作を実現しています。
+- **Frontend**: React (Vite) , AG Grid, etc
+- **Backend**: Python + FastAPI
+- **Data Management**: 設定、プレイリスト、楽曲管理情報はすべて SQLite に保存されます。
 - **Core Engine**: `ADB`, `Rsync`, `FTP` の3つのプロトコルを抽象化した同期エンジン (`AudioSynchronizer`) を実装し、柔軟なデバイス環境に対応可能です。
 
-## 前提条件 (Prerequisites)
+## 前提条件
 
 - **Runtime**:
     - Python 3.8+
@@ -57,36 +77,35 @@ graph TD
     - [uv](https://github.com/astral-sh/uv) (Pythonパッケージ管理)
     - npm (Nodeパッケージ管理)
 
-## セットアップ (Installation & Setup)
 
-### Backend
+## 実行方法 （Docker 不使用）
+
+### セットアップ
 
 依存関係をインストールします。
+
+#### Backend
 
 ```bash
 uv sync
 ```
 
-### Frontend
-
-フロントエンドの依存関係をインストールします。
+#### Frontend
 
 ```bash
 cd frontend
 npm install
 ```
 
-## 実行方法 (Usage)
+### 起動
 
-開発サーバーを起動して使用します。
-
-### 1. Backendの起動
+#### Backend
 
 ```bash
 uv run uvicorn backend.main:app --reload
 ```
 
-### 2. Frontendの起動
+#### Frontend
 
 別ターミナルで実行してください。
 
@@ -95,40 +114,41 @@ cd frontend
 npm run dev
 ```
 
-### 3. アプリケーションへのアクセス
+### アプリケーションへのアクセス
 
 ブラウザで `http://localhost:5173` にアクセスしてください。
 フロントエンドのプロキシ設定により、APIリクエストは自動的にバックエンドに転送されます。
 
-## Dockerでの実行 (Usage with Docker)
+## **(推奨)** Dockerでの実行
 
 Docker Composeを使用して、セットアップ不要でアプリケーションを起動できます。
+`docker-compose.sample.yml`をコピーして`docker-compose.yml`を作成してください。
 
-### 1. 起動
+#### 起動
 
 ```bash
 docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
-### 2. アプリケーションへのアクセス
+#### アプリケーションへのアクセス
 
 *   **Web UI**: `http://localhost:8280`
 *   **API Docs**: `http://localhost:8280/api/docs`
 
-### 3. 注意事項
+#### 注意事項
 
-*   **音楽フォルダ**: デフォルトではホストの `~/Music` が `/music` としてマウントされ、自動的にスキャン対象となります。変更する場合は `docker/docker-compose.yml` の `volumes` セクションを編集してください。
+*   **音楽フォルダ**: デフォルトではホストの `~/Music` が `/music/default` としてマウントされます。変更する場合は `docker/docker-compose.yml` の `volumes` セクションを編集してください。
 *   **データベース**: `db/` ディレクトリに SQLite データベースが永続化されます。
 *   **ADB同期**: Androidデバイスを同期する場合は、`docker-compose.yml` 内の `network_mode: "host"` を有効にする必要があります。
 
-## 技術スタック (Tech Stack)
+## 使用ソフトウェア
 
 - **Backend**: Python, FastAPI, SQLAlchemy (SQLite), aiosqlite, Websockets
 - **Frontend**: TypeScript, React, Vite, Mantine UI, AG Grid
 - **Others**: Mutagen (Audio Metadata), Adbutils
 
-## ライセンス (License)
+## ライセンス
 
 本ソフトウェアは **GPL v3 (GNU General Public License v3)** の下で公開されています。
 詳細については [LICENSE](./LICENSE) ファイルを参照してください。
-`mutagen` (GPL v2+) などのGPLライブラリを使用しているため、本ソフトウェアの派生物を配布する場合はGPL互換ライセンスを採用する必要があります。
+`mutagen` (GPL v2+) などのGPLライブラリを使用しているため、本ソフトウェアの派生物を布する場合はGPL互換ライセンスを採用する必要があります。
