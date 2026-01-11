@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { getWebSocketUrl } from './client';
 
 interface WebSocketMessage {
   type: 'log' | 'progress' | 'status';
@@ -15,25 +16,16 @@ interface UseWebSocketReturn {
 export const useWebSocket = (
   onMessage: (message: string) => void,
   onProgress?: (progress: number) => void,
-  url?: string
+  urlPath: string = '/ws/status'
 ): UseWebSocketReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<number | undefined>(undefined);
 
-  // Get WebSocket URL dynamically if not provided
-  const getWsUrl = useCallback(() => {
-    if (url) return url;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    // In dev (Vite), it might be localhost:5173, but we want it to go through the proxy.
-    // In prod, it's the same host.
-    return `${protocol}//${host}/ws/status`;
-  }, [url]);
-
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     try {
-      const socketUrl = getWsUrl();
+      const socketUrl = await getWebSocketUrl(urlPath);
+      console.log('Connecting to WebSocket:', socketUrl);
       ws.current = new WebSocket(socketUrl);
 
       ws.current.onopen = () => {
@@ -44,7 +36,6 @@ export const useWebSocket = (
       ws.current.onmessage = (event) => {
         const data = event.data;
 
-        // Try to parse as JSON first
         try {
           const parsed: WebSocketMessage = JSON.parse(data);
           if (parsed.type === 'log' && parsed.message) {
@@ -79,7 +70,7 @@ export const useWebSocket = (
     } catch (error) {
       console.error('Failed to create WebSocket:', error);
     }
-  }, [url, onMessage, onProgress]);
+  }, [urlPath, onMessage, onProgress]);
 
   useEffect(() => {
     connect();
