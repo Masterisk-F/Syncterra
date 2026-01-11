@@ -15,10 +15,12 @@ import {
   Image,
   SimpleGrid,
   AspectRatio,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconRefresh, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending } from '@tabler/icons-react';
 import { getTracks, batchUpdateTracks, getAlbumArtUrl } from '../../api';
 import type { Track } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
@@ -40,7 +42,12 @@ interface AlbumData {
   artist: string;
   count: number;
   tracks: Track[];
+  latestAdded: string; // ISO date string
+  latestModified: string; // ISO date string
 }
+
+type SortBy = 'name' | 'artist' | 'added' | 'updated';
+type SortOrder = 'asc' | 'desc';
 
 export default function AudioListPage() {
   const [rowData, setRowData] = useState<Track[]>([]);
@@ -49,6 +56,10 @@ export default function AudioListPage() {
   // View Mode: 'tracks' or 'albums'
   const [viewMode, setViewMode] = useState<string>('tracks');
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
+
+  // Sort State
+  const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   // Responsive columns for Album Grid
   const isMobile = useMediaQuery('(max-width: 480px)');
@@ -75,19 +86,55 @@ export default function AudioListPage() {
           name: albumName,
           artist,
           count: 0,
-          tracks: []
+          tracks: [],
+          latestAdded: '',
+          latestModified: '',
         });
       }
 
       const album = map.get(albumName)!;
       album.count++;
       album.tracks.push(track);
+
+      // Update latest dates
+      if (track.added_date && (!album.latestAdded || track.added_date > album.latestAdded)) {
+        album.latestAdded = track.added_date;
+      }
+      if (track.last_modified && (!album.latestModified || track.last_modified > album.latestModified)) {
+        album.latestModified = track.last_modified;
+      }
     });
 
-    // Sort albums by name
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [rowData]);
+    const albumList = Array.from(map.values());
 
+    // Sort albums
+    return albumList.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'artist':
+          comparison = a.artist.localeCompare(b.artist);
+          break;
+        case 'added':
+          // Handle empty dates (treat as oldest)
+          if (!a.latestAdded && !b.latestAdded) comparison = 0;
+          else if (!a.latestAdded) comparison = -1;
+          else if (!b.latestAdded) comparison = 1;
+          else comparison = a.latestAdded.localeCompare(b.latestAdded);
+          break;
+        case 'updated':
+          // Handle empty dates (treat as oldest)
+          if (!a.latestModified && !b.latestModified) comparison = 0;
+          else if (!a.latestModified) comparison = -1;
+          else if (!b.latestModified) comparison = 1;
+          else comparison = a.latestModified.localeCompare(b.latestModified);
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [rowData, sortBy, sortOrder]);
 
 
   const handleAlbumClick = (albumName: string) => {
@@ -266,21 +313,49 @@ export default function AudioListPage() {
             </Button>
           </Group>
 
-          <Select
-            data={[
-              { value: 'tracks', label: '曲一覧' },
-              { value: 'albums', label: 'アルバム一覧' },
-            ]}
-            value={viewMode}
-            onChange={(value) => {
-              if (value) {
-                setViewMode(value);
-                setSelectedAlbum(null);
-              }
-            }}
-            allowDeselect={false}
-            w={150}
-          />
+          <Group>
+            {viewMode === 'albums' && (
+              <Group gap="xs">
+                <Select
+                  data={[
+                    { value: 'name', label: 'アルバム名' },
+                    { value: 'artist', label: 'アーティスト名' },
+                    { value: 'added', label: '追加日時' },
+                    { value: 'updated', label: '更新日時' },
+                  ]}
+                  value={sortBy}
+                  onChange={(val) => setSortBy(val as SortBy)}
+                  w={150}
+                  allowDeselect={false}
+                />
+                <Tooltip label={sortOrder === 'asc' ? '昇順 (クリックで降順へ)' : '降順 (クリックで昇順へ)'}>
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  >
+                    {sortOrder === 'asc' ? <IconSortAscending size={20} /> : <IconSortDescending size={20} />}
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            )}
+
+            <Select
+              data={[
+                { value: 'tracks', label: '曲一覧' },
+                { value: 'albums', label: 'アルバム一覧' },
+              ]}
+              value={viewMode}
+              onChange={(value) => {
+                if (value) {
+                  setViewMode(value);
+                  setSelectedAlbum(null);
+                }
+              }}
+              allowDeselect={false}
+              w={150}
+            />
+          </Group>
         </Group>
       </Paper>
 
