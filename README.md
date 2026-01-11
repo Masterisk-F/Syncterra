@@ -41,6 +41,7 @@ For Android devices, please use an app such as [Sshd4a](https://github.com/tfont
 ## Screenshots
 
 ![Audio File List](./docs/images/music_list.jpeg)
+![Album List](./docs/images/albums.jpg)
 ![Playlist Management](./docs/images/playlists.jpeg)
 ![Settings Screen](./docs/images/settings.jpeg)
 
