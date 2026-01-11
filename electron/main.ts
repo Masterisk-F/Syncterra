@@ -40,10 +40,10 @@ function createWindow() {
         },
     });
 
-    // 開発モード: ViteのHMRを利用、本番: バンドルされたファイル
+    // 開発モード: ViteのHMRを利用、本番: resourcesにバンドルされたファイル
     const startUrl = isDev
         ? 'http://localhost:5173'
-        : `file://${path.join(__dirname, '../renderer/index.html')}`;
+        : `file://${path.join(process.resourcesPath, 'renderer', 'index.html')}`;
 
     mainWindow.loadURL(startUrl);
 

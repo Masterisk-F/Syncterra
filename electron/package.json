@@ -8,7 +8,10 @@
         "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:electron\"",
         "dev:frontend": "cd ../frontend && npm run dev",
         "dev:electron": "wait-on http://localhost:5173 && tsc && electron .",
-        "build": "tsc && electron-builder",
+        "build:frontend": "cd ../frontend && npm run build",
+        "build:backend": "cd .. && uv run pyinstaller backend.spec --distpath electron/resources --workpath build/pyinstaller --noconfirm",
+        "build:electron": "tsc && electron-builder",
+        "build": "npm run build:frontend && npm run build:backend && npm run build:electron",
         "compile": "tsc"
     },
     "keywords": [
@@ -26,7 +29,6 @@
         "ts-node": "^10.9.2"
     },
     "dependencies": {
-        "electron-is-dev": "^3.0.1",
         "concurrently": "^9.1.2",
         "cross-env": "^7.0.3",
         "wait-on": "^8.0.2"
@@ -35,11 +37,21 @@
         "appId": "com.syncterra.app",
         "productName": "Syncterra",
         "files": [
-            "dist/**/*",
-            "../frontend/dist/**/*"
+            "dist/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "resources/backend",
+                "to": "backend"
+            },
+            {
+                "from": "../frontend/dist",
+                "to": "renderer"
+            }
         ],
         "directories": {
-            "buildResources": "assets"
+            "buildResources": "assets",
+            "output": "dist"
         },
         "linux": {
             "target": [
