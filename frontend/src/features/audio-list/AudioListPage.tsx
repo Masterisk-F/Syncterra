@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { GridApi, GridReadyEvent, IRowNode } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import {
@@ -10,7 +10,13 @@ import {
   Loader,
   Text,
   Badge,
+  Select,
+  Card,
+  Image,
+  SimpleGrid,
+  AspectRatio,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy } from '@tabler/icons-react';
 import { getTracks, batchUpdateTracks } from '../../api';
@@ -21,12 +27,71 @@ import TrackDataGrid from './TrackDataGrid';
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+interface AlbumData {
+  name: string;
+  artist: string;
+  count: number;
+  tracks: Track[];
+}
+
 export default function AudioListPage() {
   const [rowData, setRowData] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // View Mode: 'tracks' or 'albums'
+  const [viewMode, setViewMode] = useState<string>('tracks');
+  const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
+
+  // Responsive columns for Album Grid
+  const isMobile = useMediaQuery('(max-width: 480px)');
+  const isTablet = useMediaQuery('(max-width: 768px)');
+  const isSmallDesktop = useMediaQuery('(max-width: 1024px)');
+  const isMediumDesktop = useMediaQuery('(max-width: 1280px)');
+  const isLargeDesktop = useMediaQuery('(max-width: 1536px)');
+
+  const cols = isMobile ? 2 : isTablet ? 3 : isSmallDesktop ? 4 : isMediumDesktop ? 5 : isLargeDesktop ? 6 : 7;
+
   const { isSyncing, isScanning, isConnected, handleScan, lastUpdateId } =
     useSync();
+
+  // Group tracks by album
+  const albums = useMemo(() => {
+    const map = new Map<string, AlbumData>();
+
+    rowData.forEach(track => {
+      const albumName = track.album || 'Unknown Album';
+      if (!map.has(albumName)) {
+        // Use album_artist if available, otherwise first artist, or Unknown
+        const artist = track.album_artist || track.artist || 'Unknown Artist';
+        map.set(albumName, {
+          name: albumName,
+          artist,
+          count: 0,
+          tracks: []
+        });
+      }
+
+      const album = map.get(albumName)!;
+      album.count++;
+      album.tracks.push(track);
+    });
+
+    // Sort albums by name
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [rowData]);
+
+  // Chunk albums for row-based rendering to support inline expansion
+  const albumChunks = useMemo(() => {
+    const chunks: AlbumData[][] = [];
+    for (let i = 0; i < albums.length; i += cols) {
+      chunks.push(albums.slice(i, i + cols));
+    }
+    return chunks;
+  }, [albums, cols]);
+
+  const handleAlbumClick = (albumName: string) => {
+    setSelectedAlbum(prev => prev === albumName ? null : albumName);
+  };
 
   // Load tracks from API
   const loadTracks = useCallback(async () => {
@@ -199,6 +264,22 @@ export default function AudioListPage() {
               設定保存
             </Button>
           </Group>
+
+          <Select
+            data={[
+              { value: 'tracks', label: '曲一覧' },
+              { value: 'albums', label: 'アルバム一覧' },
+            ]}
+            value={viewMode}
+            onChange={(value) => {
+              if (value) {
+                setViewMode(value);
+                setSelectedAlbum(null);
+              }
+            }}
+            allowDeselect={false}
+            w={150}
+          />
         </Group>
       </Paper>
 
@@ -206,27 +287,118 @@ export default function AudioListPage() {
         withBorder
         radius="md"
         style={{
-          height: 'calc(100vh - 180px)', // Adjusted height
+          height: viewMode === 'tracks' ? 'calc(100vh - 180px)' : 'auto',
+          minHeight: viewMode === 'albums' ? 'calc(100vh - 180px)' : 0,
           display: 'flex',
           flexDirection: 'column',
+          overflow: viewMode === 'albums' ? 'visible' : 'hidden',
+          backgroundColor: viewMode === 'albums' ? 'transparent' : undefined,
+          padding: viewMode === 'albums' ? '1rem' : 0,
+          border: viewMode === 'albums' ? 'none' : undefined,
         }}
       >
-        <div
-          style={{
-            height: '100%',
-            width: '100%',
-          }}
-          onPaste={handleContainerPaste}
-          tabIndex={0}
-        >
-          <TrackDataGrid
-            tracks={rowData}
-            onGridReady={onGridReady}
-            onSyncToggle={handleSyncToggle}
-            showSelectionCheckbox={false}
-          />
-        </div>
+        {viewMode === 'tracks' ? (
+          <div
+            style={{
+              height: '100%',
+              width: '100%',
+            }}
+            onPaste={handleContainerPaste}
+            tabIndex={0}
+          >
+            <TrackDataGrid
+              tracks={rowData}
+              onGridReady={onGridReady}
+              onSyncToggle={handleSyncToggle}
+              showSelectionCheckbox={false}
+            />
+          </div>
+        ) : (
+          <Stack gap="md">
+            {albumChunks.map((chunk, chunkIndex) => {
+              // Check if selected album is in this chunk
+              const selectedAlbumData = chunk.find(a => a.name === selectedAlbum);
+
+              return (
+                <div key={chunkIndex}>
+                  <SimpleGrid cols={cols} spacing="md">
+                    {chunk.map((album) => (
+                      <Card
+                        key={album.name}
+                        shadow="sm"
+                        padding="xs"
+                        radius={0}
+                        withBorder
+                        style={{
+                          cursor: 'pointer',
+                          borderColor: selectedAlbum === album.name ? 'var(--mantine-primary-color-filled)' : undefined,
+                          borderWidth: selectedAlbum === album.name ? 2 : 1
+                        }}
+                        onClick={() => handleAlbumClick(album.name)}
+                      >
+                        <Card.Section>
+                          <AspectRatio ratio={1 / 1}>
+                            <Image
+                              src="https://placehold.co/300x300?text=Album"
+                              w="100%"
+                              h="100%"
+                              alt={album.name}
+                              radius={0}
+                            />
+                          </AspectRatio>
+                        </Card.Section>
+
+                        <Stack gap={2} mt="xs">
+                          <Text fw={500} size="sm" lineClamp={2} title={album.name} lh={1.2}>
+                            {album.name}
+                          </Text>
+                          <Text size="xs" c="dimmed" lineClamp={1} title={album.artist}>
+                            {album.artist}
+                          </Text>
+                          <Badge color="blue" variant="light" size="xs" w="fit-content" mt={2}>
+                            {album.count} songs
+                          </Badge>
+                        </Stack>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+
+                  {/* Inline Expansion Area */}
+                  {selectedAlbumData && (
+                    <Paper
+                      withBorder
+                      shadow="md"
+                      p="xs"
+                      mt="md"
+                      mb="md"
+                      radius="md"
+                      style={{
+                        borderColor: 'var(--mantine-primary-color-filled)',
+                      }}
+                    >
+
+                      {/* 
+                         Assuming TrackDataGrid handles its own internal logic for onSyncToggle etc.
+                         We use autoHeight as requested.
+                      */}
+                      <div tabIndex={0} onPaste={handleContainerPaste}> {/* Allow paste on detail grid too */}
+                        <TrackDataGrid
+                          tracks={selectedAlbumData.tracks}
+                          onGridReady={() => { }} // We might not need global gridApi ref for these sub-grids for now
+                          onSyncToggle={handleSyncToggle}
+                          showSelectionCheckbox={false}
+                          domLayout='autoHeight'
+                        />
+                      </div>
+                    </Paper>
+                  )}
+                </div>
+              );
+            })}
+          </Stack>
+        )}
+
       </Paper>
-    </Stack>
+    </Stack >
   );
 }
