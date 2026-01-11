@@ -1,9 +1,11 @@
+import asyncio
+import logging
+
 from fastapi import APIRouter, BackgroundTasks
+
 from ..core.scanner import ScannerService
 from ..core.syncer import SyncService
 from .websocket import manager
-import logging
-import asyncio
 
 router = APIRouter(prefix="/api", tags=["system"])
 logger = logging.getLogger(__name__)

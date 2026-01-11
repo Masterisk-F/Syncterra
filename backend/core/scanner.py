@@ -1,17 +1,18 @@
-import os
 import datetime
-import logging
 import json
+import logging
+import os
+from typing import List, Optional
+
+from fastapi.concurrency import run_in_threadpool
+from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3NoHeaderError
+from mutagen.mp4 import MP4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List, Optional
-from mutagen.easyid3 import EasyID3
-from mutagen.mp4 import MP4
-from mutagen.id3 import ID3NoHeaderError
-from fastapi.concurrency import run_in_threadpool
 
-from ..db.models import Track, Setting
 from ..db.database import AsyncSessionLocal
+from ..db.models import Setting, Track
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +44,11 @@ class ScannerService:
                 if not isinstance(scan_paths, list):
                     scan_paths = [scan_paths] if scan_paths else []
             except (json.JSONDecodeError, TypeError):
-                # Fallback: if it's a string like "['/path']" but with single quotes, 
+                # Fallback: if it's a string like "['/path']" but with single quotes,
                 # or just a plain string path
                 if isinstance(scan_paths_str, str) and scan_paths_str.strip():
                     import ast
+
                     try:
                         # Try literal_eval for single quotes/list representation
                         val = ast.literal_eval(scan_paths_str)
@@ -66,8 +68,8 @@ class ScannerService:
 
             # Normalize extensions: lower case and remove leading dot for comparison later
             target_exts = [
-                f".{ext.strip().lower().lstrip('.')}" 
-                for ext in target_exts_str.split(",") 
+                f".{ext.strip().lower().lstrip('.')}"
+                for ext in target_exts_str.split(",")
                 if ext.strip()
             ]
 
@@ -138,7 +140,7 @@ class ScannerService:
                                 logger.info(msg)
                                 if log_callback:
                                     log_callback(msg)
-                        
+
                         if path_changed:
                             # スキャンディレクトリ設定が変更された場合、相対パスのみを更新する。
                             # ファイル実体に変更がない場合は、重いメタデータ抽出はスキップしてDB上のパスのみを修正する。
@@ -203,15 +205,17 @@ class ScannerService:
     def _scan_filesystem(self, paths: List[str], exts: List[str], excludes: List[str]):
         results = []  # (full_path, relative_path, mtime)
         logger.info(f"FileSystem scan started. Target paths: {paths}, Exts: {exts}")
-        
+
         for root_path in paths:
             logger.info(f"Checking root path: {root_path}")
             if not os.path.exists(root_path):
                 logger.warning(f"Path does not exist: {root_path}")
                 continue
-            
+
             if os.path.islink(root_path):
-                logger.info(f"Root path '{root_path}' is a symbolic link. Target: {os.path.realpath(root_path)}")
+                logger.info(
+                    f"Root path '{root_path}' is a symbolic link. Target: {os.path.realpath(root_path)}"
+                )
 
             # We use followlinks=True to ensure mount points that are symlinks are traversed
             for root, dirs, files in os.walk(root_path, followlinks=True):
@@ -226,11 +230,11 @@ class ScannerService:
                     # Case insensitive check
                     if any(file.lower().endswith(ext) for ext in exts):
                         full_path = os.path.join(root, file)
-                        
+
                         # Strip trailing slash to ensure dirname gives parent
                         root_clean = root_path.rstrip(os.sep)
                         base_dir = os.path.dirname(root_clean)
-                        
+
                         rel_path = (
                             full_path[len(base_dir) :]
                             if full_path.startswith(base_dir)

@@ -10,19 +10,21 @@ Integration Tests: 共通Fixture
 - create_settings: テスト用設定を簡単にDBに追加するヘルパー
 - patch_db_session: Scanner/Syncerなど独自セッションを持つサービス用のパッチ
 """
-import pytest
+
 import os
 import shutil
 import tempfile
-from sqlalchemy.future import select
+
+import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-import pytest_asyncio
 
-from backend.main import app
 from backend.db.database import Base, get_db
+from backend.main import app
 
 # テスト用データベースURL
 # :memory: を使用することで、テストごとに独立したDBが生成され、高速かつ安全にテストできる
@@ -33,12 +35,12 @@ SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 async def temp_db():
     """
     テスト専用のインメモリSQLiteデータベースセッションを提供するFixture。
-    
+
     特徴:
     - 各テストで独立したDBインスタンスを使用（並列実行セーフ）
     - StaticPoolによりコネクションを維持（インメモリDBの永続性を確保）
     - テスト終了後に自動的にクリーンアップ
-    
+
     使用例:
         async def test_example(temp_db):
             temp_db.add(SomeModel(...))
@@ -69,11 +71,12 @@ async def override_get_db(temp_db):
     """
     FastAPIの依存性注入をオーバーライドし、temp_dbセッションを使用させるFixture。
     autouse=Trueにより、すべてのテストで自動的に適用される。
-    
+
     目的:
     APIエンドポイントが本番のDBではなく、テスト用のtemp_dbを使用するようにする。
     これにより、APIテスト時にDBアクセスがインメモリDBにリダイレクトされる。
     """
+
     async def _get_db():
         yield temp_db
 
@@ -86,11 +89,11 @@ async def override_get_db(temp_db):
 def client(override_get_db):
     """
     FastAPIテストクライアントを提供するFixture。
-    
+
     特徴:
     - override_get_dbと組み合わせることで、temp_dbを使用したAPIテストが可能
     - 同期的なTestClientを使用（シンプルなAPIテスト向け）
-    
+
     使用例:
     def test_api(client):
         response = client.post("/api/scan")
@@ -103,7 +106,7 @@ def client(override_get_db):
 def temp_fs():
     """
     ダミー音楽ファイルを含む一時ディレクトリを作成するFixture。
-    
+
     ディレクトリ構造:
     /ROOT
       /Artist1
@@ -115,11 +118,11 @@ def temp_fs():
       /Excluded
         ignored.mp3 (メタデータなし、除外テスト用)
       info.txt (非音楽ファイル、拡張子フィルタテスト用)
-    
+
     特徴:
     - mutagenを使用して実際のID3タグを書き込み（メタデータ抽出テストに対応）
     - テスト終了後に自動削除
-    
+
     使用例:
         def test_scan(temp_fs):
             # temp_fsはディレクトリパス（str）
@@ -136,10 +139,11 @@ def temp_fs():
         """ダミーファイルを作成し、必要に応じてID3タグを追加"""
         with open(path, "w") as f:
             f.write(content)
-        
+
         # ID3タグを追加（mutagen使用）
         if title or artist or album:
-            from mutagen.id3 import ID3, TIT2, TPE1, TALB
+            from mutagen.id3 import ID3, TALB, TIT2, TPE1
+
             try:
                 tags = ID3()
                 if title:
@@ -153,16 +157,28 @@ def temp_fs():
                 print(f"Warning: Failed to save tags to {path}: {e}")
 
     # メタデータ付きファイル
-    create_file(os.path.join(tmp_dir, "Artist1", "Album1", "song1.mp3"), 
-                title="Song 1", artist="Artist 1", album="Album 1")
-    create_file(os.path.join(tmp_dir, "Artist1", "Album1", "song2.mp3"),
-                title="Song 2", artist="Artist 1", album="Album 1")
-    create_file(os.path.join(tmp_dir, "Artist2", "song3.mp3"),
-                title="Song 3", artist="Artist 2", album="Unknown Album")
-                
+    create_file(
+        os.path.join(tmp_dir, "Artist1", "Album1", "song1.mp3"),
+        title="Song 1",
+        artist="Artist 1",
+        album="Album 1",
+    )
+    create_file(
+        os.path.join(tmp_dir, "Artist1", "Album1", "song2.mp3"),
+        title="Song 2",
+        artist="Artist 1",
+        album="Album 1",
+    )
+    create_file(
+        os.path.join(tmp_dir, "Artist2", "song3.mp3"),
+        title="Song 3",
+        artist="Artist 2",
+        album="Unknown Album",
+    )
+
     # メタデータなしファイル（除外テスト用）
     create_file(os.path.join(tmp_dir, "Excluded", "ignored.mp3"))
-    
+
     # 非音楽ファイル（拡張子フィルタテスト用）
     create_file(os.path.join(tmp_dir, "info.txt"))
 
@@ -176,11 +192,11 @@ def temp_fs():
 def create_settings(temp_db):
     """
     テスト用設定をDBに追加するヘルパーFixture。
-    
+
     目的:
     テストの前提条件として必要なSettingsを簡潔に設定するためのユーティリティ。
     同じキーが既に存在する場合は更新する。
-    
+
     使用例:
         async def test_scan(temp_db, create_settings):
             await create_settings(
@@ -210,16 +226,16 @@ def patch_db_session(temp_db):
     """
     Scanner/Syncerなど独自にセッションを生成するサービス用のパッチFixture。
     autouse=True: テスト全体で誤って本番DBに接続しないよう強制する。
-    
+
     目的:
     ScannerServiceやSyncServiceは内部でAsyncSessionLocalを呼び出してDBセッションを取得する。
     このFixtureは、これらのサービスがtemp_dbを使用するようにMockでパッチする。
-    
+
     パッチ対象:
     - backend.core.scanner.AsyncSessionLocal
     - backend.core.syncer.AsyncSessionLocal
     - backend.api.settings.AsyncSessionLocal (念のため)
-    
+
     使用例:
         async def test_scanner_flow(temp_db, patch_db_session):
             # ScannerService内部でtemp_dbが使用される
@@ -236,22 +252,22 @@ def patch_db_session(temp_db):
     targets = [
         "backend.core.scanner.AsyncSessionLocal",
         "backend.core.syncer.AsyncSessionLocal",
-        "backend.db.database.AsyncSessionLocal", # Catch-all? Might be tricky if used as class
+        "backend.db.database.AsyncSessionLocal",  # Catch-all? Might be tricky if used as class
     ]
-    
+
     patches = [patch(target, return_value=mock_session_cls) for target in targets]
-    
+
     # パッチ開始
     # Note: backend.db.database.AsyncSessionLocal patch might act weird if it's a class not function.
     # But in database.py it is `AsyncSessionLocal = async_sessionmaker(...)` which is a callable (class-like).
     # Setting return_value on it triggers when instantiated: `AsyncSessionLocal()` -> returns mock_session_cls
     # which has __aenter__ returning temp_db. This matches usage `async with AsyncSessionLocal() as db:`
-    
+
     for p in patches:
         p.start()
-    
+
     yield
-    
+
     # パッチ終了
     for p in patches:
         p.stop()
@@ -261,17 +277,19 @@ def patch_db_session(temp_db):
 def patch_init_db():
     """
     startupイベントでのinit_db実行を無効化するFixture。
-    
+
     理由:
     1. テスト環境ではtemp_db fixtureがテーブル作成を行うためredundant。
     2. init_dbがグローバルなengine(ファイルDB)を使用するため、
        テスト中に意図せずファイルDBへの接続/スレッド作成が発生し、
        pytestがハングする原因になる可能性がある。
     """
-    from unittest.mock import patch, AsyncMock
-    
+    from unittest.mock import AsyncMock, patch
+
     # backend.mainですでにimportされているinit_dbをパッチする必要がある
     # AsyncMockを使用してawait可能なモックにする
-    with patch("backend.main.init_db", new_callable=AsyncMock) as mock_main_init, \
-         patch("backend.db.database.init_db", new_callable=AsyncMock) as mock_db_init:
+    with (
+        patch("backend.main.init_db", new_callable=AsyncMock) as mock_main_init,
+        patch("backend.db.database.init_db", new_callable=AsyncMock) as mock_db_init,
+    ):
         yield

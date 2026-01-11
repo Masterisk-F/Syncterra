@@ -1,10 +1,12 @@
+from datetime import datetime
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
-from typing import List, Optional
-from pydantic import BaseModel
-from datetime import datetime
+
 from ..db.database import get_db
 from ..db.models import Playlist, PlaylistTrack, Track
 

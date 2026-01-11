@@ -1,17 +1,18 @@
-import os
-import tempfile
-import subprocess
+import asyncio
 import ftplib
 import logging
-import asyncio
+import os
+import subprocess
+import tempfile
 from abc import ABC, abstractmethod
-from typing import List, Callable, Optional
+from typing import Callable, List, Optional
+
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 
-from ..db.models import Track, Setting, Playlist, PlaylistTrack
 from ..db.database import AsyncSessionLocal
+from ..db.models import Playlist, PlaylistTrack, Setting, Track
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +251,9 @@ class RsyncSynchronizer(AudioSynchronizer):
         user = self.settings.get("rsync_user")
         host = self.settings.get("rsync_host")
         port = self.settings.get("rsync_port", "22")
-        dest_path = self.settings.get("rsync_dest") or self.settings.get("sync_dest", "~")
+        dest_path = self.settings.get("rsync_dest") or self.settings.get(
+            "sync_dest", "~"
+        )
         use_key = self.settings.get("rsync_use_key", "0") == "1"
         key_path = self.settings.get("rsync_key_path")
         password = self.settings.get("rsync_pass")
@@ -265,12 +268,12 @@ class RsyncSynchronizer(AudioSynchronizer):
             for i in range(1, len(parts)):
                 dir_path = "/".join(parts[:i]) + "/"
                 include_list.add(self.rsync_escape(dir_path))
-            
+
             full_path = t.relative_path.replace("\\", "/")
             include_list.add(self.rsync_escape(full_path))
 
         fd, include_path = tempfile.mkstemp()
-        
+
         try:
             with open(include_path, "w") as f:
                 for p in include_list:
@@ -292,14 +295,16 @@ class RsyncSynchronizer(AudioSynchronizer):
 
             # Build rsync command
             cmd = []
-            
+
             # hostが定義されている場合のみSSH認証を使用
             if host:
                 # SSH認証方式の判定
                 if use_key:
                     # SSH鍵認証
                     if not key_path:
-                        self.log("SSH key authentication enabled but key path not configured")
+                        self.log(
+                            "SSH key authentication enabled but key path not configured"
+                        )
                         return
                     if not os.path.exists(key_path):
                         self.log(f"SSH key file not found: {key_path}")
@@ -312,16 +317,18 @@ class RsyncSynchronizer(AudioSynchronizer):
                 else:
                     self.log("No valid authentication method configured for SSH")
                     return
-            
+
             # rsyncコマンドの基本部分
-            cmd.extend([
-                "rsync",
-                "-avz",
-                "--delete-excluded",
-                "--include-from",
-                include_path,
-                "--exclude=*",
-            ])
+            cmd.extend(
+                [
+                    "rsync",
+                    "-avz",
+                    "--delete-excluded",
+                    "--include-from",
+                    include_path,
+                    "--exclude=*",
+                ]
+            )
             cmd.extend(src_dirs)
 
             # リモート先の設定
@@ -330,9 +337,9 @@ class RsyncSynchronizer(AudioSynchronizer):
                 ssh_opts = f"ssh -p {port}"
                 if use_key and key_path:
                     ssh_opts += f" -i {key_path}"
-                
+
                 cmd.extend(["-e", ssh_opts])
-                
+
                 if user:
                     remote = f"{user}@{host}:{dest_path}"
                 else:
@@ -340,11 +347,11 @@ class RsyncSynchronizer(AudioSynchronizer):
             else:
                 # ローカル同期
                 remote = dest_path
-            
+
             cmd.append(remote)
 
             # Log command without password
-            log_cmd = [c if c != password else '***' for c in cmd]
+            log_cmd = [c if c != password else "***" for c in cmd]
             self.log(f"Running rsync: {' '.join(log_cmd)}")
 
             proc = subprocess.Popen(
@@ -372,14 +379,16 @@ class RsyncSynchronizer(AudioSynchronizer):
         user = self.settings.get("rsync_user")
         host = self.settings.get("rsync_host")
         port = self.settings.get("rsync_port", "22")
-        dest_path = self.settings.get("rsync_dest") or self.settings.get("sync_dest", "~")
+        dest_path = self.settings.get("rsync_dest") or self.settings.get(
+            "sync_dest", "~"
+        )
         use_key = self.settings.get("rsync_use_key", "0") == "1"
         key_path = self.settings.get("rsync_key_path")
         password = self.settings.get("rsync_pass")
 
         # Build rsync command
         cmd = []
-        
+
         # hostが定義されている場合のみSSH認証を使用
         if host:
             if use_key:
@@ -390,19 +399,19 @@ class RsyncSynchronizer(AudioSynchronizer):
             elif password:
                 # パスワード認証（sshpassを使用）
                 cmd = ["sshpass", "-p", password]
-        
+
         # rsyncコマンドの基本部分
         cmd.extend(["rsync", "-avz"])
-        
+
         # リモート先の設定
         if host:
             # SSH経由でのリモート同期
             ssh_opts = f"ssh -p {port}"
             if use_key and key_path:
                 ssh_opts += f" -i {key_path}"
-            
+
             cmd.extend(["-e", ssh_opts])
-            
+
             if user:
                 remote = f"{user}@{host}:{dest_path}"
             else:
@@ -410,14 +419,14 @@ class RsyncSynchronizer(AudioSynchronizer):
         else:
             # ローカル同期
             remote = dest_path
-        
+
         remote_full = f"{remote}/{relative_path_to}".replace("//", "/")
         cmd.extend([filepath_from, remote_full])
 
         # Log command without password
-        log_cmd = [c if c != password else '***' for c in cmd]
+        log_cmd = [c if c != password else "***" for c in cmd]
         self.log(f"Copying file (rsync): {' '.join(log_cmd)}")
-        
+
         proc = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
@@ -477,10 +486,10 @@ class FtpSynchronizer(AudioSynchronizer):
         root = self.sync_root.replace("\\", "/").rstrip("/")
         if not root.startswith("/"):
             root = "/" + root
-            
+
         if not rel:
             return root if root else "/"
-        
+
         # If root is just "/", joining with "/" + rel would create "//rel"
         if root == "/":
             return "/" + rel
@@ -669,9 +678,9 @@ class SyncService:
 
 # --- __main__ entrypoint for standalone debug ---
 if __name__ == "__main__":
-    import sys
-    import logging
     import asyncio
+    import logging
+    import sys
 
     # 標準出力にログを出す設定
     logging.basicConfig(

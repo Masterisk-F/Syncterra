@@ -1,8 +1,9 @@
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+
 from backend.api.tracks import delete_missing_tracks
-from backend.db.models import Track
+
 
 @pytest.mark.asyncio
 async def test_delete_missing_tracks():
@@ -18,7 +19,7 @@ async def test_delete_missing_tracks():
     assert result["status"] == "ok"
     assert result["deleted_count"] == 5
     mock_db.execute.assert_called_once()
-    
+
     # Verify the delete statement was constructed correctly
-    # Note: Checking the exact SQL construct with mocks is hard, 
+    # Note: Checking the exact SQL construct with mocks is hard,
     # but we can verify something was executed.

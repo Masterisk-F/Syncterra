@@ -1,9 +1,10 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from backend.core.scanner import ScannerService
 
 # Mock mutagen
-
 
 
 @pytest.mark.asyncio

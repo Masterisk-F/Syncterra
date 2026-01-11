@@ -1,5 +1,6 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
 from .models import Base
 
 DATABASE_URL = "sqlite+aiosqlite:///./db/syncterra.db"
@@ -10,8 +11,11 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 
 
 import os
+
 from sqlalchemy.future import select
+
 from .models import Setting
+
 
 async def init_db():
     # データベースディレクトリが存在することを確認
@@ -21,7 +25,7 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Docker環境向けの初期設定（スキャンパス）
     docker_scan_paths = os.getenv("DOCKER_DEFAULT_SCAN_PATHS")
     if docker_scan_paths:
@@ -31,15 +35,18 @@ async def init_db():
                 select(Setting).where(Setting.key == "scan_paths")
             )
             existing = result.scalars().first()
-            
+
             if not existing:
                 import logging
+
                 logger = logging.getLogger(__name__)
-                logger.info(f"Initializing scan_paths with {docker_scan_paths} from environment")
+                logger.info(
+                    f"Initializing scan_paths with {docker_scan_paths} from environment"
+                )
                 new_setting = Setting(key="scan_paths", value=docker_scan_paths)
                 session.add(new_setting)
                 await session.commit()
-    
+
     # 同期設定の自動初期化 (FTP/Rsync)
     sync_defaults = {
         "sync_mode": os.getenv("DOCKER_SYNC_MODE"),
@@ -58,6 +65,7 @@ async def init_db():
 
     async with AsyncSessionLocal() as session:
         import logging
+
         logger = logging.getLogger(__name__)
         for key, value in sync_defaults.items():
             if value is not None and str(value).strip() != "":
@@ -67,7 +75,9 @@ async def init_db():
                 existing = res.scalar()
                 if existing:
                     if existing.value != value:
-                        logger.info(f"Updating setting {key}: {existing.value} -> {value}")
+                        logger.info(
+                            f"Updating setting {key}: {existing.value} -> {value}"
+                        )
                         existing.value = value
                 else:
                     logger.info(f"Initializing setting {key}: {value}")

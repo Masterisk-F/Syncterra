@@ -1,10 +1,8 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from backend.main import app
-from backend.db.database import init_db
-from backend.db.models import Track
 import pytest_asyncio
 from sqlalchemy import delete
+
+from backend.db.models import Track
 
 # Integration Test: Tracks API
 # 目的: トラック一覧取得・更新APIが正しく動作するか検証する。
@@ -42,11 +40,11 @@ async def seed_tracks(temp_db):
 async def test_get_tracks(client, seed_tracks):
     """
     [Tracks API] トラック一覧取得
-    
+
     条件:
     1. DBに2件のトラックが登録されている
     2. GET /api/tracks を実行
-    
+
     期待値:
     1. ステータスコード 200 が返ること
     2. 登録した2件のトラックが取得できること
@@ -67,11 +65,11 @@ async def test_get_tracks(client, seed_tracks):
 async def test_update_track(client, seed_tracks):
     """
     [Tracks API] トラック個別更新
-    
+
     条件:
     1. 特定トラック(sync=False)がDBに存在
     2. PUT /api/tracks/{id} で sync=True に更新
-    
+
     期待値:
     1. ステータスコード 200 が返ること
     2. レスポンスに status: ok が含まれること
@@ -93,11 +91,11 @@ async def test_update_track(client, seed_tracks):
 async def test_batch_update(client, seed_tracks):
     """
     [Tracks API] トラック一括更新
-    
+
     条件:
     1. 複数トラックがDBに存在
     2. PUT /api/tracks/batch で複数IDを指定して sync=True に更新
-    
+
     期待値:
     1. ステータスコード 200 が返ること
     2. GET で取得した指定トラック全てのsyncがTrueになっていること
