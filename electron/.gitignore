@@ -1,0 +1,8 @@
+# 依存関係
+node_modules/
+
+# TypeScriptコンパイル出力
+dist/
+
+# electron-builderビルド成果物
+out/

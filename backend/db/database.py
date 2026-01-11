@@ -3,7 +3,10 @@ from sqlalchemy.orm import sessionmaker
 
 from .models import Base
 
-DATABASE_URL = "sqlite+aiosqlite:///./db/syncterra.db"
+import os
+
+DB_DIR = os.getenv("SYNCTERRA_DB_DIR", "./db")
+DATABASE_URL = f"sqlite+aiosqlite:///{DB_DIR}/syncterra.db"
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 
@@ -20,6 +23,7 @@ from .models import Setting
 async def init_db():
     # データベースディレクトリが存在することを確認
     db_dir = os.path.dirname(DATABASE_URL.replace("sqlite+aiosqlite:///", ""))
+    # If absolute path (from env), dirname works. If relative, needs care but likely works.
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
 
