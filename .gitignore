@@ -12,3 +12,4 @@ wheels/
 Log.log
 *.db
 backend.log
+electron/release

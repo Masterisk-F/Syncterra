@@ -23,16 +23,15 @@
     "author": "Syncterra",
     "license": "GPL-3.0-or-later",
     "devDependencies": {
-        "electron": "^34.0.0",
-        "electron-builder": "^25.1.8",
-        "typescript": "^5.7.3",
-        "ts-node": "^10.9.2"
-    },
-    "dependencies": {
         "concurrently": "^9.1.2",
         "cross-env": "^7.0.3",
+        "electron": "^34.0.0",
+        "electron-builder": "^25.1.8",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.3",
         "wait-on": "^8.0.2"
     },
+    "dependencies": {},
     "build": {
         "appId": "com.syncterra.app",
         "productName": "Syncterra",
@@ -51,7 +50,7 @@
         ],
         "directories": {
             "buildResources": "assets",
-            "output": "dist"
+            "output": "release"
         },
         "linux": {
             "target": [
