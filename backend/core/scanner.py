@@ -196,7 +196,18 @@ class ScannerService:
             if progress_callback and last_progress < 100:
                 progress_callback(100)
 
+            # Commit changes so that AlbumArtScanner can see the updated tracks
             await db.commit()
+
+            # 4. Scan Album Art
+            try:
+                from .album_art_scanner import AlbumArtScanner
+                art_scanner = AlbumArtScanner()
+                await art_scanner.scan_all()
+                logger.info("Album art scan trigger completed")
+            except Exception as e:
+                logger.error(f"Album art scan failed: {e}")
+
             summary = f"Scan complete. Added: {added_count}, Updated: {updated_count}, Missing: {missing_count}"
             logger.info(summary)
             if log_callback:
