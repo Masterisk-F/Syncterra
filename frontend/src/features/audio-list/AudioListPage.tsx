@@ -28,8 +28,10 @@ import TrackDataGrid from './TrackDataGrid';
 import { List, type RowComponentProps, type ListImperativeAPI } from 'react-window';
 
 // Row constants
-const ROW_SPACING = 15; // reduced gap
-const CARD_HEIGHT = 300; // reduced card height
+const ROW_SPACING = 15; // グリッド行間のスペース
+const TEXT_AREA_HEIGHT = 75; // テキストエリアの固定高さ（アルバム名・アーティスト・曲数）
+const CARD_PADDING = 8; // Card のpadding
+const SIMPLE_GRID_SPACING = 16; // SimpleGrid のspacing="md"はデフォルト16px
 const HEADER_HEIGHT = 48; // AG Grid header height
 const ROW_HEIGHT = 42; // AG Grid row height
 const GRID_PADDING = 34; // Paper padding + borders
@@ -363,13 +365,12 @@ export default function AudioListPage() {
         withBorder
         radius="md"
         style={{
-          height: viewMode === 'tracks' ? 'calc(100vh - 180px)' : 'auto',
-          minHeight: viewMode === 'albums' ? 'calc(100vh - 180px)' : 0,
+          height: viewMode === 'tracks' ? 'calc(100vh - 180px)' : undefined,
           display: 'flex',
           flexDirection: 'column',
           overflow: viewMode === 'albums' ? 'visible' : 'hidden',
           backgroundColor: viewMode === 'albums' ? 'transparent' : undefined,
-          padding: viewMode === 'albums' ? '1rem' : 0,
+          padding: 0,
           border: viewMode === 'albums' ? 'none' : undefined,
         }}
       >
@@ -429,6 +430,44 @@ const AlbumList = ({
   handleContainerPaste
 }: AlbumListProps) => {
   const listRef = useRef<ListImperativeAPI>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [listHeight, setListHeight] = useState(400); // 初期値
+
+  // コンテナ幅とリスト高さを監視
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateDimensions = () => {
+      setContainerWidth(container.clientWidth);
+      // コンテナのoffsetTopから、ウィンドウ全体の残りの高さを計算
+      const rect = container.getBoundingClientRect();
+      const availableHeight = window.innerHeight - rect.top - 16; // 16px は下部余白
+      setListHeight(Math.max(200, availableHeight)); // 最小200px
+    };
+
+    updateDimensions();
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    resizeObserver.observe(container);
+    window.addEventListener('resize', updateDimensions);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateDimensions);
+    };
+  }, []);
+
+  // カード幅から動的にカード高さを計算
+  // カード幅 = (コンテナ幅 - パディング - (cols-1)*spacing) / cols
+  // カード高さ = カード幅(正方形アルバムアート) + テキストエリア + padding*2 + mt(4px)
+  const calculatedCardHeight = useMemo(() => {
+    if (containerWidth === 0) return 300; // 初期値
+    const padding = 8; // SimpleGrid p="xs"
+    const cardWidth = (containerWidth - padding * 2 - (cols - 1) * SIMPLE_GRID_SPACING) / cols;
+    // アルバムアート(正方形) + テキストエリア + Cardのpadding(上下*2) + mt(4px)
+    return cardWidth + TEXT_AREA_HEIGHT + CARD_PADDING * 2 + 4;
+  }, [containerWidth, cols]);
 
   // Memoize chunks
   const albumChunks = useMemo(() => {
@@ -503,13 +542,16 @@ const AlbumList = ({
     prevDetailHeightRef.current = detailRowHeight;
   }, [expandedChunkIndex, detailRowHeight]);
 
-  // O(1) size calculation
+  // Note: react-window v2ではrowHeightに関数を渡すと、関数の参照が変わると自動的に再計算される
+  // calculatedCardHeightが変わるとgetItemSizeの参照も変わるため、Listは自動的に再レンダリングされる
+
+  // O(1) size calculation（動的カード高さを使用）
   const getItemSize = useCallback((index: number) => {
     if (expandedChunkIndex !== -1 && index === expandedChunkIndex + 1) {
       return detailRowHeight;
     }
-    return CARD_HEIGHT + ROW_SPACING;
-  }, [expandedChunkIndex, detailRowHeight]);
+    return calculatedCardHeight + ROW_SPACING;
+  }, [expandedChunkIndex, detailRowHeight, calculatedCardHeight]);
 
   const Row = ({ index, style }: RowComponentProps) => {
     // Check if this is the detail row
@@ -569,14 +611,13 @@ const AlbumList = ({
                 cursor: 'pointer',
                 borderColor: selectedAlbum === album.name ? 'var(--mantine-primary-color-filled)' : undefined,
                 borderWidth: selectedAlbum === album.name ? 2 : 1,
-                height: 300, // Fixed height
-                display: 'flex',
-                flexDirection: 'column',
+                // カード全体の高さは固定しない（アルバムアートのサイズに応じて変化）
               }}
               onClick={() => handleAlbumClick(album.name)}
             >
+              {/* アルバムアートは常に正方形 */}
               <Card.Section>
-                <AspectRatio ratio={1 / 1}>
+                <AspectRatio ratio={1}>
                   <Image
                     src={getAlbumArtUrl(album.name)}
                     w="100%"
@@ -588,8 +629,9 @@ const AlbumList = ({
                 </AspectRatio>
               </Card.Section>
 
-              <Stack gap={2} mt={4} style={{ flex: 1 }}>
-                <Text fw={500} size="sm" lineClamp={2} title={album.name} lh={1.2} h={34}>
+              {/* テキストエリアは固定の高さ（75px） */}
+              <Stack gap={2} mt={4} style={{ height: 75, flexShrink: 0 }}>
+                <Text fw={500} size="sm" lineClamp={2} title={album.name} lh={1.2} style={{ height: 34 }}>
                   {album.name}
                 </Text>
 
@@ -610,16 +652,18 @@ const AlbumList = ({
   };
 
   return (
-    <List
-      listRef={listRef}
-      style={{
-        height: window.innerHeight - 200,
-        width: '100%'
-      }}
-      rowCount={rowCount}
-      rowHeight={getItemSize}
-      rowComponent={Row}
-      rowProps={{}}
-    />
+    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+      <List
+        listRef={listRef}
+        style={{
+          height: listHeight,
+          width: '100%'
+        }}
+        rowCount={rowCount}
+        rowHeight={getItemSize}
+        rowComponent={Row}
+        rowProps={{}}
+      />
+    </div>
   );
 };
