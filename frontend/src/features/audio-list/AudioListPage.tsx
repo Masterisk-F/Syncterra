@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { GridApi, GridReadyEvent, IRowNode } from 'ag-grid-community';
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import {
@@ -23,6 +23,14 @@ import { getTracks, batchUpdateTracks, getAlbumArtUrl } from '../../api';
 import type { Track } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
 import TrackDataGrid from './TrackDataGrid';
+import { List, type RowComponentProps, type ListImperativeAPI } from 'react-window';
+
+// Row constants
+const ROW_SPACING = 15; // reduced gap
+const CARD_HEIGHT = 300; // reduced card height
+const HEADER_HEIGHT = 48; // AG Grid header height
+const ROW_HEIGHT = 42; // AG Grid row height
+const GRID_PADDING = 34; // Paper padding + borders
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -80,14 +88,7 @@ export default function AudioListPage() {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [rowData]);
 
-  // Chunk albums for row-based rendering to support inline expansion
-  const albumChunks = useMemo(() => {
-    const chunks: AlbumData[][] = [];
-    for (let i = 0; i < albums.length; i += cols) {
-      chunks.push(albums.slice(i, i + cols));
-    }
-    return chunks;
-  }, [albums, cols]);
+
 
   const handleAlbumClick = (albumName: string) => {
     setSelectedAlbum(prev => prev === albumName ? null : albumName);
@@ -314,92 +315,236 @@ export default function AudioListPage() {
             />
           </div>
         ) : (
-          <Stack gap="md">
-            {albumChunks.map((chunk, chunkIndex) => {
-              // Check if selected album is in this chunk
-              const selectedAlbumData = chunk.find(a => a.name === selectedAlbum);
-
-              return (
-                <div key={chunkIndex}>
-                  <SimpleGrid cols={cols} spacing="md">
-                    {chunk.map((album) => (
-                      <Card
-                        key={album.name}
-                        shadow="sm"
-                        padding="xs"
-                        radius={0}
-                        withBorder
-                        style={{
-                          cursor: 'pointer',
-                          borderColor: selectedAlbum === album.name ? 'var(--mantine-primary-color-filled)' : undefined,
-                          borderWidth: selectedAlbum === album.name ? 2 : 1
-                        }}
-                        onClick={() => handleAlbumClick(album.name)}
-                      >
-                        <Card.Section>
-                          <AspectRatio ratio={1 / 1}>
-                            <Image
-                              src={getAlbumArtUrl(album.name)}
-                              w="100%"
-                              h="100%"
-                              alt={album.name}
-                              radius={0}
-                              fallbackSrc="https://placehold.co/300x300?text=No+Image"
-                            />
-                          </AspectRatio>
-                        </Card.Section>
-
-                        <Stack gap={2} mt="xs">
-                          <Text fw={500} size="sm" lineClamp={2} title={album.name} lh={1.2}>
-                            {album.name}
-                          </Text>
-                          <Text size="xs" c="dimmed" lineClamp={1} title={album.artist}>
-                            {album.artist}
-                          </Text>
-                          <Badge color="blue" variant="light" size="xs" w="fit-content" mt={2}>
-                            {album.count} songs
-                          </Badge>
-                        </Stack>
-                      </Card>
-                    ))}
-                  </SimpleGrid>
-
-                  {/* Inline Expansion Area */}
-                  {selectedAlbumData && (
-                    <Paper
-                      withBorder
-                      shadow="md"
-                      p="xs"
-                      mt="md"
-                      mb="md"
-                      radius="md"
-                      style={{
-                        borderColor: 'var(--mantine-primary-color-filled)',
-                      }}
-                    >
-
-                      {/* 
-                         Assuming TrackDataGrid handles its own internal logic for onSyncToggle etc.
-                         We use autoHeight as requested.
-                      */}
-                      <div tabIndex={0} onPaste={handleContainerPaste}> {/* Allow paste on detail grid too */}
-                        <TrackDataGrid
-                          tracks={selectedAlbumData.tracks}
-                          onGridReady={() => { }} // We might not need global gridApi ref for these sub-grids for now
-                          onSyncToggle={handleSyncToggle}
-                          showSelectionCheckbox={false}
-                          domLayout='autoHeight'
-                        />
-                      </div>
-                    </Paper>
-                  )}
-                </div>
-              );
-            })}
-          </Stack>
+          <div style={{ flex: 1, width: '100%' }}>
+            <AlbumList
+              albums={albums}
+              cols={cols}
+              selectedAlbum={selectedAlbum}
+              handleAlbumClick={handleAlbumClick}
+              handleSyncToggle={handleSyncToggle}
+              handleContainerPaste={handleContainerPaste}
+            />
+          </div>
         )}
 
       </Paper>
-    </Stack >
+    </Stack>
   );
 }
+
+// Separate component for List to handle ref and resizing
+
+// Separate component for List to handle ref and resizing
+interface AlbumListProps {
+  albums: AlbumData[];
+  cols: number;
+  selectedAlbum: string | null;
+  handleAlbumClick: (name: string) => void;
+  handleSyncToggle: (id: number, val: boolean) => void;
+  handleContainerPaste: () => void;
+}
+
+
+const AlbumList = ({
+  albums,
+  cols,
+  selectedAlbum,
+  handleAlbumClick,
+  handleSyncToggle,
+  handleContainerPaste
+}: AlbumListProps) => {
+  const listRef = useRef<ListImperativeAPI>(null);
+
+  // Memoize chunks
+  const albumChunks = useMemo(() => {
+    const chunks: AlbumData[][] = [];
+    for (let i = 0; i < albums.length; i += cols) {
+      chunks.push(albums.slice(i, i + cols));
+    }
+    return chunks;
+  }, [albums, cols]);
+
+  // Find which chunk contains the selected album
+  const { expandedChunkIndex, selectedAlbumData } = useMemo(() => {
+    if (!selectedAlbum) return { expandedChunkIndex: -1, selectedAlbumData: null };
+
+    // Optimization: Depending on how albums are sorted, we might binary search, 
+    // but findIndex is O(N/cols) which is fast enough for <10k albums
+    const index = albumChunks.findIndex(chunk =>
+      chunk.some(a => a.name === selectedAlbum)
+    );
+
+    if (index === -1) return { expandedChunkIndex: -1, selectedAlbumData: null };
+
+    const data = albumChunks[index].find(a => a.name === selectedAlbum) || null;
+    return { expandedChunkIndex: index, selectedAlbumData: data };
+  }, [selectedAlbum, albumChunks]);
+
+  // Calculate detail row height in advance
+  const detailRowHeight = useMemo(() => {
+    if (!selectedAlbumData) return 0;
+    const trackCount = selectedAlbumData.tracks.length;
+    // Header + Rows + Padding + Extra
+    // Note: TRACK_GRID_EXTRA might need adjustment if it was including card height in previous logic
+    const gridHeight = HEADER_HEIGHT + (trackCount * ROW_HEIGHT) + GRID_PADDING;
+    return gridHeight + 50; // 50px buffer
+  }, [selectedAlbumData]);
+
+  // Total rows = chunks + (1 if expanded)
+  const rowCount = albumChunks.length + (expandedChunkIndex !== -1 ? 1 : 0);
+
+  // Helper to map virtual row index to actual chunk index
+  // If expandedChunkIndex is 5:
+  // Row 0..5 -> Chunk 0..5
+  // Row 6 -> Detail Row
+  // Row 7..N -> Chunk 6..(N-1)
+  const getChunkIndex = useCallback((rowIndex: number) => {
+    if (expandedChunkIndex === -1) return rowIndex;
+    if (rowIndex <= expandedChunkIndex) return rowIndex;
+    if (rowIndex === expandedChunkIndex + 1) return -1; // Special Detail Row
+    return rowIndex - 1;
+  }, [expandedChunkIndex]);
+
+  // Track previous state for scroll adjustment
+  const prevExpandedRef = useRef(-1);
+  const prevDetailHeightRef = useRef(0);
+
+  // Adjust scroll position when an album above the newly selected one collapses
+  useEffect(() => {
+    if (
+      listRef.current &&
+      listRef.current.element &&
+      expandedChunkIndex !== -1 &&
+      prevExpandedRef.current !== -1 &&
+      prevExpandedRef.current < expandedChunkIndex
+    ) {
+      // The previously expanded album was above the new one.
+      // Its collapse caused the new album to shift up by 'prevDetailHeight'.
+      // We compensate by scrolling up (subtracting from scrollTop) by that amount.
+      listRef.current.element.scrollTop -= prevDetailHeightRef.current;
+    }
+
+    prevExpandedRef.current = expandedChunkIndex;
+    prevDetailHeightRef.current = detailRowHeight;
+  }, [expandedChunkIndex, detailRowHeight]);
+
+  // O(1) size calculation
+  const getItemSize = useCallback((index: number) => {
+    if (expandedChunkIndex !== -1 && index === expandedChunkIndex + 1) {
+      return detailRowHeight;
+    }
+    return CARD_HEIGHT + ROW_SPACING;
+  }, [expandedChunkIndex, detailRowHeight]);
+
+  const Row = ({ index, style }: RowComponentProps) => {
+    // Check if this is the detail row
+    if (expandedChunkIndex !== -1 && index === expandedChunkIndex + 1) {
+      if (!selectedAlbumData) return <div style={style} />;
+      return (
+        <div style={style}>
+          <div style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 16, height: '100%' }}>
+            <Paper
+              withBorder
+              shadow="md"
+              p="xs"
+              radius="md"
+              style={{
+                borderColor: 'var(--mantine-primary-color-filled)',
+                height: '100%',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Prevent click propagation so it doesn't close the album when clicking grid background */}
+              <div
+                tabIndex={0}
+                onPaste={handleContainerPaste}
+                style={{ height: '100%' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <TrackDataGrid
+                  tracks={selectedAlbumData.tracks}
+                  onGridReady={() => { }}
+                  onSyncToggle={handleSyncToggle}
+                  showSelectionCheckbox={false}
+                  // Use fixed height or 100% to fill the row
+                  domLayout='normal'
+                />
+              </div>
+            </Paper>
+          </div>
+        </div>
+      );
+    }
+
+    const chunkIndex = getChunkIndex(index);
+    const chunk = albumChunks[chunkIndex];
+    if (!chunk) return <div style={style} />;
+
+    return (
+      <div style={style}>
+        <SimpleGrid cols={cols} spacing="md" p="xs">
+          {chunk.map((album) => (
+            <Card
+              key={album.name}
+              shadow="sm"
+              padding={8}
+              radius={0}
+              withBorder
+              style={{
+                cursor: 'pointer',
+                borderColor: selectedAlbum === album.name ? 'var(--mantine-primary-color-filled)' : undefined,
+                borderWidth: selectedAlbum === album.name ? 2 : 1,
+                height: 300, // Fixed height
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+              onClick={() => handleAlbumClick(album.name)}
+            >
+              <Card.Section>
+                <AspectRatio ratio={1 / 1}>
+                  <Image
+                    src={getAlbumArtUrl(album.name)}
+                    w="100%"
+                    h="100%"
+                    alt={album.name}
+                    radius={0}
+                    fallbackSrc="https://placehold.co/300x300?text=No+Image"
+                  />
+                </AspectRatio>
+              </Card.Section>
+
+              <Stack gap={2} mt={4} style={{ flex: 1 }}>
+                <Text fw={500} size="sm" lineClamp={2} title={album.name} lh={1.2} h={34}>
+                  {album.name}
+                </Text>
+
+                <div style={{ marginTop: 'auto' }}>
+                  <Text size="xs" c="dimmed" lineClamp={1} title={album.artist}>
+                    {album.artist}
+                  </Text>
+                  <Badge color="blue" variant="light" size="xs" w="fit-content" mt={2}>
+                    {album.count} songs
+                  </Badge>
+                </div>
+              </Stack>
+            </Card>
+          ))}
+        </SimpleGrid>
+      </div>
+    );
+  };
+
+  return (
+    <List
+      listRef={listRef}
+      style={{
+        height: window.innerHeight - 200,
+        width: '100%'
+      }}
+      rowCount={rowCount}
+      rowHeight={getItemSize}
+      rowComponent={Row}
+      rowProps={{}}
+    />
+  );
+};
