@@ -40,6 +40,7 @@ Android端末であれば[Sshd4a](https://github.com/tfonteyn/Sshd4a)などの�
 ## スクリーンショット
 
 ![音楽ファイル一覧](./docs/images/music_list.jpeg)
+![アルバム一覧](./docs/images/albums.jpg)
 ![プレイリスト管理](./docs/images/playlists.jpeg)
 ![設定画面](./docs/images/settings.jpeg)
 

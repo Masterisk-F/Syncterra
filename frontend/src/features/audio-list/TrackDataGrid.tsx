@@ -19,6 +19,7 @@ interface TrackDataGridProps {
   readOnlySync?: boolean;
   showSyncColumn?: boolean;
   showSelectionCheckbox?: boolean;
+  domLayout?: 'normal' | 'autoHeight' | 'print';
 }
 
 // ファイルサイズをMB表示にフォーマット
@@ -60,6 +61,7 @@ export default function TrackDataGrid({
   readOnlySync = false,
   showSyncColumn = true,
   showSelectionCheckbox = true,
+  domLayout,
 }: TrackDataGridProps) {
   const { colorScheme } = useMantineColorScheme();
 
@@ -271,6 +273,7 @@ export default function TrackDataGrid({
       theme={gridTheme}
       onCellKeyDown={onCellKeyDown}
       getRowId={(params) => String(params.data.id)}
+      domLayout={domLayout}
     />
   );
 }

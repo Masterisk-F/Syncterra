@@ -101,9 +101,20 @@ export const deletePlaylist = async (id: number): Promise<void> => {
   await apiClient.delete(`/api/playlists/${id}`);
 };
 
+
 export const updatePlaylistTracks = async (
   id: number,
   trackIds: number[]
 ): Promise<void> => {
   await apiClient.put(`/api/playlists/${id}/tracks`, { track_ids: trackIds });
+};
+
+// Album Art API
+
+export const getAlbumArtUrl = (albumName: string): string => {
+  // Use baseURL from apiClient if available, but apiClient is axios instance.
+  // We need absolute URL for <img src>.
+  // Assuming relative path works with Vite proxy / Docker setup
+  // encodeURIComponent is crucial for album names with spaces/symbols
+  return `/api/album-arts/${encodeURIComponent(albumName)}`;
 };
