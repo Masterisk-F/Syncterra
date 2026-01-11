@@ -35,6 +35,7 @@ const SIMPLE_GRID_SPACING = 16; // SimpleGrid のspacing="md"はデフォルト1
 const HEADER_HEIGHT = 48; // AG Grid header height
 const ROW_HEIGHT = 42; // AG Grid row height
 const GRID_PADDING = 34; // Paper padding + borders
+const ALBUM_INFO_HEIGHT = 30; // アルバム情報ヘッダーの高さ
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -498,9 +499,9 @@ const AlbumList = ({
   const detailRowHeight = useMemo(() => {
     if (!selectedAlbumData) return 0;
     const trackCount = selectedAlbumData.tracks.length;
-    // Header + Rows + Padding + Extra
+    // Header + Rows + Padding + Extra + Album Info Header
     // Note: TRACK_GRID_EXTRA might need adjustment if it was including card height in previous logic
-    const gridHeight = HEADER_HEIGHT + (trackCount * ROW_HEIGHT) + GRID_PADDING;
+    const gridHeight = HEADER_HEIGHT + (trackCount * ROW_HEIGHT) + GRID_PADDING + ALBUM_INFO_HEIGHT;
     return gridHeight + 50; // 50px buffer
   }, [selectedAlbumData]);
 
@@ -575,17 +576,22 @@ const AlbumList = ({
               <div
                 tabIndex={0}
                 onPaste={handleContainerPaste}
-                style={{ height: '100%' }}
+                style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <TrackDataGrid
-                  tracks={selectedAlbumData.tracks}
-                  onGridReady={() => { }}
-                  onSyncToggle={handleSyncToggle}
-                  showSelectionCheckbox={false}
-                  // Use fixed height or 100% to fill the row
-                  domLayout='normal'
-                />
+                <Text size="sm" mb={4} pl={4} lineClamp={1} title={`${selectedAlbumData.name} - ${selectedAlbumData.artist}`}>
+                  <Text span fw={700}>{selectedAlbumData.name}</Text> - {selectedAlbumData.artist}
+                </Text>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <TrackDataGrid
+                    tracks={selectedAlbumData.tracks}
+                    onGridReady={() => { }}
+                    onSyncToggle={handleSyncToggle}
+                    showSelectionCheckbox={false}
+                    // Use fixed height or 100% to fill the row
+                    domLayout='normal'
+                  />
+                </div>
               </div>
             </Paper>
           </div>
