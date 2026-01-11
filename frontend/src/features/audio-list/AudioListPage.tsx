@@ -21,7 +21,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending } from '@tabler/icons-react';
-import { getTracks, batchUpdateTracks, getAlbumArtUrl } from '../../api';
+import { getTracks, batchUpdateTracks, getAlbumArtUrl, initAlbumArtBaseUrl } from '../../api';
 import type { Track } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
 import TrackDataGrid from './TrackDataGrid';
@@ -173,7 +173,8 @@ export default function AudioListPage() {
   }, []);
 
   useEffect(() => {
-    loadTracks();
+    // Initialize album art base URL before loading tracks
+    initAlbumArtBaseUrl().then(() => loadTracks());
   }, [loadTracks]);
 
   // リロードフラグ (lastUpdateId) の変更を検知して再読み込み

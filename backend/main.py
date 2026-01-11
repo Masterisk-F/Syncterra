@@ -48,3 +48,21 @@ app.include_router(system.router)
 app.include_router(websocket.router)
 app.include_router(playlists.router)
 app.include_router(album_art.router)
+if __name__ == "__main__":
+    import argparse
+    import uvicorn
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, help="TCP Port binding (Dev only)")
+    parser.add_argument("--uds", type=str, help="Unix Domain Socket path")
+    args = parser.parse_args()
+    
+    if args.uds:
+        # UDS binding
+        uvicorn.run(app, uds=args.uds)
+    elif args.port:
+        # Localhost binding
+        uvicorn.run(app, host="127.0.0.1", port=args.port)
+    else:
+        # Default fallback (Dev)
+        uvicorn.run(app, host="127.0.0.1", port=8000)
