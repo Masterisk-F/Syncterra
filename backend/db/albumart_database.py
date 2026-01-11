@@ -3,8 +3,11 @@ from sqlalchemy.orm import sessionmaker
 
 from .albumart_models import Base
 
+import os
+
 # Main app uses /db/syncterra.db, so we use /db/syncterra_albumart.db
-DATABASE_URL = "sqlite+aiosqlite:///./db/syncterra_albumart.db"
+DB_DIR = os.getenv("SYNCTERRA_DB_DIR", "./db")
+DATABASE_URL = f"sqlite+aiosqlite:///{DB_DIR}/syncterra_albumart.db"
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 

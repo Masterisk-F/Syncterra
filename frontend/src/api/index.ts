@@ -111,10 +111,23 @@ export const updatePlaylistTracks = async (
 
 // Album Art API
 
+// ベースURLのキャッシュ（初回取得後に保持）
+let _albumArtBaseUrl: string | null = null;
+
+/**
+ * アルバムアートのベースURLを取得（初回のみ非同期）
+ */
+export const initAlbumArtBaseUrl = async (): Promise<void> => {
+  if (_albumArtBaseUrl !== null) return;
+  const { getBaseUrl } = await import('./client');
+  _albumArtBaseUrl = await getBaseUrl();
+};
+
+/**
+ * アルバムアート画像のURLを取得
+ * 注意: initAlbumArtBaseUrl() を事前に呼び出しておく必要があります
+ */
 export const getAlbumArtUrl = (albumName: string): string => {
-  // Use baseURL from apiClient if available, but apiClient is axios instance.
-  // We need absolute URL for <img src>.
-  // Assuming relative path works with Vite proxy / Docker setup
-  // encodeURIComponent is crucial for album names with spaces/symbols
-  return `/api/album-arts/${encodeURIComponent(albumName)}`;
+  const base = _albumArtBaseUrl ?? '';
+  return `${base}/api/album-arts/${encodeURIComponent(albumName)}`;
 };
