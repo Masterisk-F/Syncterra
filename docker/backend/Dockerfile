@@ -35,9 +35,8 @@ COPY docker/backend/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # アプリケーションコードのコピー
-# .dockerignore により不要なファイルは除外される
-# 最も頻繁に変更される部分は最後に持ってく
-COPY . .
+COPY backend ./backend
+COPY asyncapi.yaml ./
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -16,4 +16,16 @@ dist/
 coverage.xml
 .env
 *.log
-
+electron/
+src/
+db/
+test_data/
+build/
+docs/
+tests/
+.vscode/
+.agent/
+scripts/
+old/
+*.docx
+*.xlsx
