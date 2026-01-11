@@ -1,6 +1,23 @@
-import { AppShell, Burger, Group, NavLink, Title, useMantineColorScheme, ActionIcon, Button } from '@mantine/core';
+import {
+  AppShell,
+  Burger,
+  Group,
+  NavLink,
+  Title,
+  useMantineColorScheme,
+  ActionIcon,
+  Button,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconMusic, IconSettings, IconSun, IconMoon, IconPlaylist, IconPlayerPlay, IconTerminal2 } from '@tabler/icons-react';
+import {
+  IconMusic,
+  IconSettings,
+  IconSun,
+  IconMoon,
+  IconPlaylist,
+  IconPlayerPlay,
+  IconTerminal2,
+} from '@tabler/icons-react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
 import SettingsPage from './features/settings/SettingsPage';
@@ -14,7 +31,16 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const { handleSync, isSyncing, isScanning, isLogDrawerOpen, setIsLogDrawerOpen, progress, logs, processName } = useSync();
+  const {
+    handleSync,
+    isSyncing,
+    isScanning,
+    isLogDrawerOpen,
+    setIsLogDrawerOpen,
+    progress,
+    logs,
+    processName,
+  } = useSync();
 
   const isProcessing = isSyncing || isScanning;
 
@@ -62,26 +88,30 @@ function AppContent() {
             size="lg"
             aria-label="Toggle color scheme"
           >
-            {colorScheme === 'dark' ? <IconSun stroke={1.5} /> : <IconMoon stroke={1.5} />}
+            {colorScheme === 'dark' ? (
+              <IconSun stroke={1.5} />
+            ) : (
+              <IconMoon stroke={1.5} />
+            )}
           </ActionIcon>
         </Group>
       </AppShell.Header>
 
       <AppShell.Navbar p="md">
         <NavLink
-          label={opened ? "Audio List" : null}
+          label={opened ? 'Audio List' : null}
           leftSection={<IconMusic size="1.5rem" stroke={1.5} />}
           active={location.pathname === '/'}
           onClick={() => navigate('/')}
         />
         <NavLink
-          label={opened ? "Playlists" : null}
+          label={opened ? 'Playlists' : null}
           leftSection={<IconPlaylist size="1.5rem" stroke={1.5} />}
           active={location.pathname === '/playlists'}
           onClick={() => navigate('/playlists')}
         />
         <NavLink
-          label={opened ? "Settings" : null}
+          label={opened ? 'Settings' : null}
           leftSection={<IconSettings size="1.5rem" stroke={1.5} />}
           active={location.pathname === '/settings'}
           onClick={() => navigate('/settings')}

@@ -4,19 +4,21 @@
 各APIエンドポイントの基本動作、バリデーション、境界値をテスト
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi import HTTPException
+
 from backend.api.playlists import (
-    get_playlists,
-    create_playlist,
-    get_playlist,
-    update_playlist,
-    delete_playlist,
-    update_playlist_tracks,
     PlaylistCreate,
-    PlaylistUpdate,
     PlaylistTracksUpdate,
+    PlaylistUpdate,
+    create_playlist,
+    delete_playlist,
+    get_playlist,
+    get_playlists,
+    update_playlist,
+    update_playlist_tracks,
 )
 
 
@@ -71,7 +73,7 @@ class TestCreatePlaylist:
         mock_result = MagicMock()
         mock_result.scalars.return_value.first.return_value = None  # 重複なし
         mock_db.execute.return_value = mock_result
-        mock_db.add = MagicMock() # Synchronous method
+        mock_db.add = MagicMock()  # Synchronous method
         mock_db.commit = AsyncMock()
 
         # refresh後のnew_playlist.idが設定されるようにモック
@@ -290,7 +292,7 @@ class TestUpdatePlaylistTracks:
         mock_result3.scalars.return_value.all.return_value = []
 
         mock_db.execute.side_effect = [mock_result1, mock_result2, mock_result3]
-        mock_db.add = MagicMock() # Synchronous method
+        mock_db.add = MagicMock()  # Synchronous method
         mock_db.commit = AsyncMock()
 
         tracks_update = PlaylistTracksUpdate(track_ids=[10, 20])

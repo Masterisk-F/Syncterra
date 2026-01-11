@@ -1,10 +1,12 @@
+import logging
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+
+from .api import playlists, settings, system, tracks, websocket
 from .db.database import init_db
-from .api import settings, tracks, system, websocket, playlists
-import logging
-import os
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +20,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",  # Vite dev server
         "http://localhost:8280",  # Docker frontend (production)
-        "http://localhost",       # Docker frontend (default port 80)
+        "http://localhost",  # Docker frontend (default port 80)
     ],
     allow_credentials=True,
     allow_methods=["*"],

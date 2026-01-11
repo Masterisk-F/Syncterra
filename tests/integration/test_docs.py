@@ -1,7 +1,8 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from backend.main import app
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+
+from backend.main import app
 
 # Integration Test: API Documentation
 # 目的: Swagger UIとOpenAPI仕様が正しく公開されているか検証する。
@@ -19,10 +20,10 @@ async def client():
 async def test_swagger_ui(client):
     """
     [API Documentation] Swagger UI公開確認
-    
+
     条件:
     1. GET /docs を実行
-    
+
     期待値:
     1. ステータスコード 200 が返ること
     2. レスポンスHTMLに "Swagger UI" が含まれること
@@ -36,10 +37,10 @@ async def test_swagger_ui(client):
 async def test_openapi_json(client):
     """
     [API Documentation] OpenAPI仕様公開確認
-    
+
     条件:
     1. GET /openapi.json を実行
-    
+
     期待値:
     1. ステータスコード 200 が返ること
     2. レスポンスJSONに openapi 3.x バージョンが含まれること
