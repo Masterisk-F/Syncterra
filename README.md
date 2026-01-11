@@ -1,51 +1,50 @@
-English | [日本語](./README.jp.md)
+[English](./README_en.md) | 日本語
 
 # Syncterra
 
-Syncterra is a web application designed to synchronize audio files on your PC with your devices.
+Syncterraは、PC上の音楽ファイルをデバイスと同期するためのWebアプリケーションです。
 
-## Key Features
+## 主な機能
 
-### Music File Synchronization Management
-You can synchronize only selected songs from music files in a specified directory on your PC.
+### 音楽ファイルの同期管理
+PC上の指定したディレクトリの音楽ファイルのうち、選択した楽曲だけを同期することができます。
 
-With normal file copying or simple directory synchronization using robocopy/rsync, operations like "synchronizing only a few songs from an album" are not easy to perform. Adding or removing specific songs later is even more troublesome.
+通常のファイルコピーや、robocopy/rsyncによる単純なディレクトリ同期では、”アルバムのうちいくつかの曲だけを同期する”といった操作は簡単には行えません。後から特定の曲を追加したり削除したりする場合はなおさら手間がかかります。
 
-Syncterra allows you to set synchronization necessity for each file, mimicking the iTunes synchronization method. This makes it easy to manage synchronization for individual tracks.
+Syncterraでは、iTunesの同期方法を模して、ファイルごとに同期要否を設定できます。これにより、個別の楽曲の同期管理を容易に行うことができます。
 
-### Playlist Management
-You can create and edit playlists on Syncterra.
+### プレイリスト管理
+Syncterra上でプレイリストの作成・編集が行えます。
 
-### Synchronization Methods
-You can choose from ADB, FTP, or Rsync as the synchronization method.
-
+### 同期方式
+同期方式はADB, FTP, Rsyncから選択できます。
 #### ADB
-Transfers music files to an Android device using ADB (Android Debug Bridge). An environment where the machine running Syncterra can connect to the Android device via ADB commands is required.
+ADB (Android Debug Bridge)を使用してAndroid端末に楽曲ファイルを転送します。Syncterraが動作するマシンからADBコマンドでAndroid端末に接続できる環境が必要です。
 > [!WARNING]
-> The ADB synchronization mode has not been tested and may be unstable.
+> ADB同期モードはテストが行われていないため、動作が不安定な可能性があります。
 
 #### FTP
-Transfers music files to the device using FTP (File Transfer Protocol).
+FTP (File Transfer Protocol)を使用して端末に楽曲ファイルを転送します。
 
-Please start an FTP server on the device to be synchronized.
+被同期端末側でFTPサーバを起動してください。
 
-For Android devices, please use an app such as [Ftp Server](https://play.google.com/store/apps/details?id=com.theolivetree.ftpserver&hl=en).
+Android端末であれば[Ftp Server](https://play.google.com/store/apps/details?id=com.theolivetree.ftpserver&hl=ja)などのアプリを使用してください。
 
 #### Rsync
-Transfers music files to the device using Rsync.
+Rsyncを使用して端末に楽曲ファイルを転送します。
 
-Please install Rsync and start an SSH server on the device to be synchronized. However, if the synchronization destination is a local directory, an SSH server is not required.
+被同期端末側でRsyncをインストールしSSHサーバを起動してください。ただし同期先がローカルディレクトリの場合はSSHサーバは不要です。
 
-For Android devices, please use an app such as [Sshd4a](https://github.com/tfonteyn/Sshd4a).
+Android端末であれば[Sshd4a](https://github.com/tfonteyn/Sshd4a)などのアプリを使用してください。
 
-## Screenshots
+## スクリーンショット
 
-![Audio File List](./docs/images/music_list.jpeg)
-![Album List](./docs/images/albums.jpg)
-![Playlist Management](./docs/images/playlists.jpeg)
-![Settings Screen](./docs/images/settings.jpeg)
+![音楽ファイル一覧](./docs/images/music_list.jpeg)
+![アルバム一覧](./docs/images/albums.jpg)
+![プレイリスト管理](./docs/images/playlists.jpeg)
+![設定画面](./docs/images/settings.jpeg)
 
-## System Architecture
+## システムアーキテクチャ
 
 ```mermaid
 graph TD
@@ -62,29 +61,31 @@ graph TD
     end
 ```
 
-It is a web-based architecture.
+Webベースのアーキテクチャとしています。
 
-- **Frontend**: React (Vite), AG Grid, etc
+- **Frontend**: React (Vite) , AG Grid, etc
 - **Backend**: Python + FastAPI
-- **Data Management**: Settings, playlists, and track management information are all stored in SQLite.
-- **Core Engine**: Implements a synchronization engine (`AudioSynchronizer`) that abstracts the three protocols `ADB`, `Rsync`, and `FTP`, enabling support for flexible device environments.
+- **Data Management**: 設定、プレイリスト、楽曲管理情報はすべて SQLite に保存されます。
+- **Core Engine**: `ADB`, `Rsync`, `FTP` の3つのプロトコルを抽象化した同期エンジン (`AudioSynchronizer`) を実装し、柔軟なデバイス環境に対応可能です。
 
-## Prerequisites
+## 前提条件
 
 - **Runtime**:
     - Python 3.8+
-    - Node.js (v18+ recommended)
-    - ADB (Android Debug Bridge) - If using ADB sync mode
+    - Node.js (v18+ 推奨)
+    - ADB (Android Debug Bridge) - ADB同期モードを使用する場合
 - **Tools**:
-    - [uv](https://github.com/astral-sh/uv) (Python package management)
-    - npm (Node package management)
+    - [uv](https://github.com/astral-sh/uv) (Pythonパッケージ管理)
+    - npm (Nodeパッケージ管理)
 
 
-## Execution (Without Docker)
 
-### Setup
 
-Install dependencies.
+## 実行方法 （Docker 不使用）
+
+### セットアップ
+
+依存関係をインストールします。
 
 #### Backend
 
@@ -99,7 +100,7 @@ cd frontend
 npm install
 ```
 
-### Start
+### 起動
 
 #### Backend
 
@@ -109,48 +110,54 @@ uv run uvicorn backend.main:app --reload
 
 #### Frontend
 
-Run in a separate terminal.
+別ターミナルで実行してください。
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-### Accessing the Application
+### アプリケーションへのアクセス
 
-Please access `http://localhost:5173` in your browser.
-API requests are automatically forwarded to the backend by the frontend proxy settings.
+ブラウザで `http://localhost:5173` にアクセスしてください。
+フロントエンドのプロキシ設定により、APIリクエストは自動的にバックエンドに転送されます。
 
-## **(Recommended)** Execution with Docker
+## **(推奨)** Dockerでの実行
 
-You can use Docker Compose to start the application without setup.
-Please copy `docker-compose.sample.yml` to create `docker-compose.yml`.
+Docker Composeを使用して、セットアップ不要でアプリケーションを起動できます。
+`docker-compose.sample.yml`をコピーして`docker-compose.yml`を作成してください。
 
-#### Start
+#### 起動
 
 ```bash
 docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
-#### Accessing the Application
+#### アプリケーションへのアクセス
 
 *   **Web UI**: `http://localhost:8280`
 *   **API Docs**: `http://localhost:8280/api/docs`
 
-#### Notes
+#### 注意事項
 
-*   **Music Folder**: By default, the host's `~/Music` is mounted as `/music/default`. To change this, please edit the `volumes` section of `docker/docker-compose.yml`.
-*   **Database**: The SQLite database is persisted in the `db/` directory.
-*   **ADB Sync**: When synchronizing an Android device, you need to enable `network_mode: "host"` in `docker-compose.yml`.
+*   **音楽フォルダ**: デフォルトではホストの `~/Music` が `/music/default` としてマウントされます。変更する場合は `docker/docker-compose.yml` の `volumes` セクションを編集してください。
+*   **データベース**: `db/` ディレクトリに SQLite データベースが永続化されます。
+*   **ADB同期**: Androidデバイスを同期する場合は、`docker-compose.yml` 内の `network_mode: "host"` を有効にする必要があります。
 
-## Software Used
+## デスクトップアプリでの実行
+
+Electron版のデスクトップアプリを作成しました。
+Releasesに掲載しているAppImageを実行してください。
+設定ファイルは`~/.config/Syncterra/`配下に保存されます。
+
+## 使用ソフトウェア
 
 - **Backend**: Python, FastAPI, SQLAlchemy (SQLite), aiosqlite, Websockets
 - **Frontend**: TypeScript, React, Vite, Mantine UI, AG Grid
 - **Others**: Mutagen (Audio Metadata), Adbutils
 
-## License
+## ライセンス
 
-This software is released under the **GPL v3 (GNU General Public License v3)**.
-Please see the [LICENSE](./LICENSE) file for details.
-Since it uses GPL libraries such as `mutagen` (GPL v2+), if you distribute derivatives of this software, you must adopt a GPL-compatible license.
+本ソフトウェアは **GPL v3 (GNU General Public License v3)** の下で公開されています。
+詳細については [LICENSE](./LICENSE) ファイルを参照してください。
+`mutagen` (GPL v2+) などのGPLライブラリを使用しているため、本ソフトウェアの派生物を布する場合はGPL互換ライセンスを採用する必要があります。
