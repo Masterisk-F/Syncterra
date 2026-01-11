@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from .api import playlists, settings, system, tracks, websocket
+from .api import album_art, playlists, settings, system, tracks, websocket
+from .db.albumart_database import init_albumart_db
 from .db.database import init_db
 
 # Logging
@@ -38,6 +39,7 @@ async def get_asyncapi():
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await init_albumart_db()
 
 
 app.include_router(settings.router)
@@ -45,3 +47,4 @@ app.include_router(tracks.router)
 app.include_router(system.router)
 app.include_router(websocket.router)
 app.include_router(playlists.router)
+app.include_router(album_art.router)

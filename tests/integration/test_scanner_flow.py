@@ -58,6 +58,20 @@ async def test_scanner_flow_new_files(
     assert track1.artist == "Artist 1"
     assert track1.album == "Album 1"
 
+    # アルバムアートの検証
+    from backend.db.albumart_models import AlbumArt
+    # temp_art_db fixture is needed here? 
+    # Since we use patch_art_db_session (autouse), the scanner should have used temp_art_db.
+    # But checking it requires access to the session.
+    # We need to request temp_art_db fixture in the test function arguments.
+
+    # However, I cannot modify the function signature here easily with replace_file_content if I don't target the def line.
+    # So I will just add a new test case for album art specifically, 
+    # OR I will try to patch the def line.
+    
+    # Let's add a NEW test function instead of modifying this one too much.
+
+
 
 @pytest.mark.asyncio
 async def test_scanner_flow_delete_and_recover_files(
@@ -244,3 +258,58 @@ async def test_scanner_flow_progress_callbacks(
     # メッセージの内容確認 (一部)
     calls = [args[0] for args, _ in log_cb.call_args_list]
     assert any("track0.mp3" in msg for msg in calls)
+
+
+@pytest.mark.asyncio
+async def test_scanner_flow_album_art(
+    temp_db, temp_art_db, temp_fs, create_settings, patch_db_session
+):
+    """
+    [Scanner] アルバムアート生成フロー
+    
+    条件:
+    1. アルバムアートを含む音楽ファイル（メタデータまたはフォルダ画像）がある
+    2. スキャナーを実行
+    
+    期待値:
+    1. syncterra_albumart.db に画像データが保存されること
+    2. アルバム名で検索可能であること
+    """
+    import json
+    import os
+    from backend.core.scanner import ScannerService
+
+    # 準備
+    scan_paths = json.dumps([temp_fs])
+    await create_settings(scan_paths=scan_paths, target_exts="mp3")
+    
+    # temp_fs/Artist1/Album1/song1.mp3 は "Album 1"
+    # conftest.pyで作成されるファイルには画像データは含まれていない
+    # ここで画像ファイルを追加する "Album 1.jpg"
+    
+    image_path = os.path.join(temp_fs, "Artist1", "Album1", "Album 1.jpg")
+    # create dummy image (just bytes, but Scanner uses Pillow so needs valid image)
+    from PIL import Image
+    import io
+    
+    img = Image.new('RGB', (600, 600), color = 'red')
+    img.save(image_path)
+    
+    scanner = ScannerService()
+    await scanner.run_scan()
+    
+    # 検証
+    from backend.db.albumart_models import AlbumArt
+    from sqlalchemy.future import select
+    
+    result = await temp_art_db.execute(select(AlbumArt).where(AlbumArt.album_display == "Album 1"))
+    art = result.scalars().first()
+    
+    assert art is not None
+    assert art.image_data is not None
+    assert art.source_path == image_path
+    
+    # Check resize (should be 500x500 max)
+    loaded_img = Image.open(io.BytesIO(art.image_data))
+    assert loaded_img.width <= 500
+    assert loaded_img.height <= 500
