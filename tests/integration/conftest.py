@@ -252,7 +252,8 @@ def patch_db_session(temp_db):
     targets = [
         "backend.core.scanner.AsyncSessionLocal",
         "backend.core.syncer.AsyncSessionLocal",
-        "backend.db.database.AsyncSessionLocal",  # Catch-all? Might be tricky if used as class
+        "backend.db.database.AsyncSessionLocal",
+        "backend.core.album_art_scanner.MainSessionLocal",
     ]
 
     patches = [patch(target, return_value=mock_session_cls) for target in targets]
@@ -291,5 +292,74 @@ def patch_init_db():
     with (
         patch("backend.main.init_db", new_callable=AsyncMock) as mock_main_init,
         patch("backend.db.database.init_db", new_callable=AsyncMock) as mock_db_init,
+        patch("backend.main.init_albumart_db", new_callable=AsyncMock) as mock_main_art_init,
+        patch("backend.db.albumart_database.init_albumart_db", new_callable=AsyncMock) as mock_db_art_init,
     ):
         yield
+
+
+@pytest_asyncio.fixture
+async def temp_art_db():
+    """
+    アルバムアート用DBのテスト用セッションFixture
+    """
+    from backend.db.albumart_models import Base as ArtBase
+    
+    # 別個のインメモリDB
+    engine = create_async_engine(
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(ArtBase.metadata.create_all)
+
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with async_session() as session:
+        yield session
+        await session.close()
+
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def override_get_albumart_db(temp_art_db):
+    from backend.db.albumart_database import get_albumart_db
+    
+    async def _get_db():
+        yield temp_art_db
+
+    app.dependency_overrides[get_albumart_db] = _get_db
+    yield
+    if get_albumart_db in app.dependency_overrides:
+        del app.dependency_overrides[get_albumart_db]
+
+
+@pytest.fixture(autouse=True)
+def patch_art_db_session(temp_art_db):
+    """
+    AlbumArtScanner用のDBセッションパッチ
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_session_cls = MagicMock()
+    mock_session_cls.__aenter__.return_value = temp_art_db
+    mock_session_cls.__aexit__.return_value = None
+
+    targets = [
+        "backend.core.album_art_scanner.ArtSessionLocal",
+        "backend.db.albumart_database.AsyncSessionLocal",
+    ]
+
+    patches = [patch(target, return_value=mock_session_cls) for target in targets]
+
+    for p in patches:
+        p.start()
+
+    yield
+
+    for p in patches:
+        p.stop()
+

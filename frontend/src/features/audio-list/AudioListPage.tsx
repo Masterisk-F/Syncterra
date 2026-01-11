@@ -19,7 +19,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy } from '@tabler/icons-react';
-import { getTracks, batchUpdateTracks } from '../../api';
+import { getTracks, batchUpdateTracks, getAlbumArtUrl } from '../../api';
 import type { Track } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
 import TrackDataGrid from './TrackDataGrid';
@@ -339,11 +339,12 @@ export default function AudioListPage() {
                         <Card.Section>
                           <AspectRatio ratio={1 / 1}>
                             <Image
-                              src="https://placehold.co/300x300?text=Album"
+                              src={getAlbumArtUrl(album.name)}
                               w="100%"
                               h="100%"
                               alt={album.name}
                               radius={0}
+                              fallbackSrc="https://placehold.co/300x300?text=No+Image"
                             />
                           </AspectRatio>
                         </Card.Section>
