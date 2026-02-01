@@ -5,6 +5,7 @@ import {
   NavLink,
   Title,
   useMantineColorScheme,
+  useComputedColorScheme,
   ActionIcon,
   Button,
 } from '@mantine/core';
@@ -30,7 +31,8 @@ function AppContent() {
   const [opened, { toggle }] = useDisclosure();
   const navigate = useNavigate();
   const location = useLocation();
-  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const { toggleColorScheme } = useMantineColorScheme();
+  const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
   const {
     handleSync,
     isSyncing,
@@ -88,7 +90,7 @@ function AppContent() {
             size="lg"
             aria-label="Toggle color scheme"
           >
-            {colorScheme === 'dark' ? (
+            {computedColorScheme === 'dark' ? (
               <IconSun stroke={1.5} />
             ) : (
               <IconMoon stroke={1.5} />

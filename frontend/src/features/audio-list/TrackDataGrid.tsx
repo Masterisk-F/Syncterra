@@ -8,7 +8,7 @@ import type {
   CellStyle,
   CellKeyDownEvent,
 } from 'ag-grid-community';
-import { useMantineColorScheme } from '@mantine/core';
+import { useComputedColorScheme } from '@mantine/core';
 import { themeQuartz, colorSchemeDarkBlue } from 'ag-grid-community';
 import type { Track } from '../../api/types';
 
@@ -67,13 +67,13 @@ export default function TrackDataGrid({
   defaultSortField,
   defaultSortOrder,
 }: TrackDataGridProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
 
   const gridTheme = useMemo(() => {
-    return colorScheme === 'dark'
+    return computedColorScheme === 'dark'
       ? themeQuartz.withPart(colorSchemeDarkBlue)
       : themeQuartz;
-  }, [colorScheme]);
+  }, [computedColorScheme]);
 
   // Space Key Handler for Sync Toggle
   const onCellKeyDown = useCallback(
