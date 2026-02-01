@@ -390,6 +390,8 @@ export default function AudioListPage() {
               onGridReady={onGridReady}
               onSyncToggle={handleSyncToggle}
               showSelectionCheckbox={false}
+              defaultSortField="added_date"
+              defaultSortOrder="desc"
             />
           </div>
         ) : (

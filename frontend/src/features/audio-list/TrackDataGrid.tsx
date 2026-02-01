@@ -20,6 +20,8 @@ interface TrackDataGridProps {
   showSyncColumn?: boolean;
   showSelectionCheckbox?: boolean;
   domLayout?: 'normal' | 'autoHeight' | 'print';
+  defaultSortField?: keyof Track;
+  defaultSortOrder?: 'asc' | 'desc';
 }
 
 // ファイルサイズをMB表示にフォーマット
@@ -62,6 +64,8 @@ export default function TrackDataGrid({
   showSyncColumn = true,
   showSelectionCheckbox = true,
   domLayout,
+  defaultSortField,
+  defaultSortOrder,
 }: TrackDataGridProps) {
   const { colorScheme } = useMantineColorScheme();
 
@@ -155,6 +159,7 @@ export default function TrackDataGrid({
         width: 200,
         filter: true,
         sortable: true,
+        sort: defaultSortField === 'title' ? defaultSortOrder : null,
       },
       {
         field: 'artist',
@@ -162,6 +167,7 @@ export default function TrackDataGrid({
         width: 150,
         filter: true,
         sortable: true,
+        sort: defaultSortField === 'artist' ? defaultSortOrder : null,
       },
       {
         field: 'album_artist',
@@ -169,6 +175,7 @@ export default function TrackDataGrid({
         width: 150,
         filter: true,
         sortable: true,
+        sort: defaultSortField === 'album_artist' ? defaultSortOrder : null,
       },
       {
         field: 'composer',
@@ -176,6 +183,7 @@ export default function TrackDataGrid({
         width: 150,
         filter: true,
         sortable: true,
+        sort: defaultSortField === 'composer' ? defaultSortOrder : null,
       },
       {
         field: 'album',
@@ -183,6 +191,7 @@ export default function TrackDataGrid({
         width: 200,
         filter: true,
         sortable: true,
+        sort: defaultSortField === 'album' ? defaultSortOrder : null,
       },
       {
         field: 'track_num',
@@ -236,6 +245,7 @@ export default function TrackDataGrid({
         sortable: true,
         valueFormatter: (params: ValueFormatterParams) =>
           formatDate(params.value),
+        sort: defaultSortField === 'added_date' ? defaultSortOrder : null,
       },
       {
         field: 'last_modified',
@@ -244,11 +254,12 @@ export default function TrackDataGrid({
         sortable: true,
         valueFormatter: (params: ValueFormatterParams) =>
           formatDate(params.value),
+        sort: defaultSortField === 'last_modified' ? defaultSortOrder : null,
       }
     );
 
     return cols;
-  }, [showSyncColumn, readOnlySync, onSyncToggle, showSelectionCheckbox]);
+  }, [showSyncColumn, readOnlySync, onSyncToggle, showSelectionCheckbox, defaultSortField, defaultSortOrder]);
 
   const defaultColDef = useMemo<ColDef>(
     () => ({
