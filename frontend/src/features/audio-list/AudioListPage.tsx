@@ -34,7 +34,7 @@ const CARD_PADDING = 8; // Card のpadding
 const SIMPLE_GRID_SPACING = 16; // SimpleGrid のspacing="md"はデフォルト16px
 const HEADER_HEIGHT = 48; // AG Grid header height
 const ROW_HEIGHT = 42; // AG Grid row height
-const GRID_PADDING = 34; // Paper padding + borders
+const GRID_PADDING = 42; // Paper padding + borders
 const ALBUM_INFO_HEIGHT = 30; // アルバム情報ヘッダーの高さ
 
 // Register AG Grid modules
@@ -505,7 +505,7 @@ const AlbumList = ({
     // Header + Rows + Padding + Extra + Album Info Header
     // Note: TRACK_GRID_EXTRA might need adjustment if it was including card height in previous logic
     const gridHeight = HEADER_HEIGHT + (trackCount * ROW_HEIGHT) + GRID_PADDING + ALBUM_INFO_HEIGHT;
-    return gridHeight + 50; // 50px buffer
+    return gridHeight;
   }, [selectedAlbumData]);
 
   // Total rows = chunks + (1 if expanded)
