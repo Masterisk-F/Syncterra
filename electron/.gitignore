@@ -6,3 +6,5 @@ dist/
 
 # electron-builderビルド成果物
 out/
+
+resources/
