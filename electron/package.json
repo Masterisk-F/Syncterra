@@ -36,7 +36,8 @@
         "appId": "com.syncterra.app",
         "productName": "Syncterra",
         "files": [
-            "dist/**/*"
+            "dist/**/*",
+            "assets/**/*"
         ],
         "extraResources": [
             {
