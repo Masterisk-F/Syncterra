@@ -160,7 +160,7 @@ class ScannerService:
                             relative_path=rel_path,
                             last_modified=mtime_dt,
                             added_date=datetime.datetime.now(),
-                            sync=False,  # Default
+                            sync=True,  # Default
                             missing=False,
                             **meta,
                         )
