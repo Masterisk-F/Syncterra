@@ -498,15 +498,28 @@ const AlbumList = ({
     return { expandedChunkIndex: index, selectedAlbumData: data };
   }, [selectedAlbum, albumChunks]);
 
+  // Calculate scrollbar height (horizontal scrollbar thickness)
+  const scrollbarHeight = useMemo(() => {
+    if (typeof document === 'undefined') return 0;
+    const outer = document.createElement('div');
+    outer.style.visibility = 'hidden';
+    outer.style.width = '100px';
+    outer.style.height = '100px';
+    outer.style.overflow = 'scroll';
+    document.body.appendChild(outer);
+    const height = outer.offsetHeight - outer.clientHeight;
+    if (outer.parentNode) outer.parentNode.removeChild(outer);
+    return height;
+  }, []);
+
   // Calculate detail row height in advance
   const detailRowHeight = useMemo(() => {
     if (!selectedAlbumData) return 0;
     const trackCount = selectedAlbumData.tracks.length;
-    // Header + Rows + Padding + Extra + Album Info Header
-    // Note: TRACK_GRID_EXTRA might need adjustment if it was including card height in previous logic
-    const gridHeight = HEADER_HEIGHT + (trackCount * ROW_HEIGHT) + GRID_PADDING + ALBUM_INFO_HEIGHT;
+    // Header + Rows + Padding + Extra + Album Info Header + Scrollbar Height
+    const gridHeight = HEADER_HEIGHT + (trackCount * ROW_HEIGHT) + GRID_PADDING + ALBUM_INFO_HEIGHT + scrollbarHeight;
     return gridHeight;
-  }, [selectedAlbumData]);
+  }, [selectedAlbumData, scrollbarHeight]);
 
   // Total rows = chunks + (1 if expanded)
   const rowCount = albumChunks.length + (expandedChunkIndex !== -1 ? 1 : 0);
