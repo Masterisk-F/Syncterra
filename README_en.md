@@ -157,6 +157,19 @@ Configuration files are saved under `~/.config/Syncterra/`.
 - **Frontend**: TypeScript, React, Vite, Mantine UI, AG Grid
 - **Others**: Mutagen (Audio Metadata), Adbutils
 
+## Development
+
+### Version Update Procedure
+
+To update the project version, run the following command:
+
+```bash
+uv run bump_version.py
+```
+
+You will be prompted to enter the new version interactively.
+You can also specify the version directly as an argument (e.g., `uv run bump_version.py 0.1.1`).
+
 ## License
 
 This software is released under the **GPL v3 (GNU General Public License v3)**.
