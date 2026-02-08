@@ -1,7 +1,7 @@
 {
     "name": "syncterra-electron",
     "productName": "Syncterra",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Audio file synchronization tool for various devices",
     "main": "dist/main.js",
     "scripts": {

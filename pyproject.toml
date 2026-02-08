@@ -1,6 +1,6 @@
 [project]
 name = "syncterra"
-version = "0.1.0"
+version = "0.2.0"
 description = "Audio file synchronization tool for various devices"
 license = { text = "GPL-3.0-or-later" }
 classifiers = [
