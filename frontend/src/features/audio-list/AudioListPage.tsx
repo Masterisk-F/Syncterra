@@ -52,6 +52,135 @@ interface AlbumData {
 type SortBy = 'name' | 'artist' | 'added' | 'updated';
 type SortOrder = 'asc' | 'desc';
 
+// AlbumRow に rowProps 経由で渡すデータの型
+interface AlbumRowData {
+  albumChunks: AlbumData[][];
+  cols: number;
+  selectedAlbum: string | null;
+  expandedChunkIndex: number;
+  selectedAlbumData: AlbumData | null;
+  handleAlbumClick: (name: string) => void;
+  handleSyncToggle: (id: number, val: boolean) => void;
+  handleContainerPaste: () => void;
+  getChunkIndex: (rowIndex: number) => number;
+}
+
+// react-window の rowComponent としてトップレベルに定義することで、
+// 親コンポーネントの再レンダリング時にコンポーネント型が再生成されるのを防ぐ
+const AlbumRow = ({
+  index,
+  style,
+  expandedChunkIndex,
+  selectedAlbumData,
+  handleContainerPaste,
+  handleSyncToggle,
+  getChunkIndex,
+  albumChunks,
+  cols,
+  selectedAlbum,
+  handleAlbumClick,
+}: RowComponentProps<AlbumRowData>) => {
+  // 詳細行（トラックリスト）の描画
+  if (expandedChunkIndex !== -1 && index === expandedChunkIndex + 1) {
+    if (!selectedAlbumData) return <div style={style} />;
+    return (
+      <div style={style}>
+        <div style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 16, height: '100%' }}>
+          <Paper
+            withBorder
+            shadow="md"
+            p="xs"
+            radius="md"
+            style={{
+              borderColor: 'var(--mantine-primary-color-filled)',
+              height: '100%',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Prevent click propagation so it doesn't close the album when clicking grid background */}
+            <div
+              tabIndex={0}
+              onPaste={handleContainerPaste}
+              style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Text size="sm" mb={4} pl={4} lineClamp={1} title={`${selectedAlbumData.name} - ${selectedAlbumData.artist}`}>
+                <Text span fw={700}>{selectedAlbumData.name}</Text> - {selectedAlbumData.artist}
+              </Text>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <TrackDataGrid
+                  tracks={selectedAlbumData.tracks}
+                  onGridReady={() => { }}
+                  onSyncToggle={handleSyncToggle}
+                  showSelectionCheckbox={false}
+                  domLayout='normal'
+                />
+              </div>
+            </div>
+          </Paper>
+        </div>
+      </div>
+    );
+  }
+
+  // アルバムカード行の描画
+  const chunkIndex = getChunkIndex(index);
+  const chunk = albumChunks[chunkIndex];
+  if (!chunk) return <div style={style} />;
+
+  return (
+    <div style={style}>
+      <SimpleGrid cols={cols} spacing="md" p="xs">
+        {chunk.map((album) => (
+          <Card
+            key={album.name}
+            shadow="sm"
+            padding={8}
+            radius={0}
+            withBorder
+            style={{
+              cursor: 'pointer',
+              borderColor: selectedAlbum === album.name ? 'var(--mantine-primary-color-filled)' : undefined,
+              borderWidth: selectedAlbum === album.name ? 2 : 1,
+            }}
+            onClick={() => handleAlbumClick(album.name)}
+          >
+            {/* アルバムアートは常に正方形 */}
+            <Card.Section>
+              <AspectRatio ratio={1}>
+                <Image
+                  src={getAlbumArtUrl(album.name)}
+                  w="100%"
+                  h="100%"
+                  alt={album.name}
+                  radius={0}
+                  fallbackSrc="https://placehold.co/300x300?text=No+Image"
+                />
+              </AspectRatio>
+            </Card.Section>
+
+            {/* テキストエリアは固定の高さ（75px） */}
+            <Stack gap={2} mt={4} style={{ height: 75, flexShrink: 0 }}>
+              <Text fw={500} size="sm" lineClamp={2} title={album.name} lh={1.2} style={{ height: 34 }}>
+                {album.name}
+              </Text>
+
+              <div style={{ marginTop: 'auto' }}>
+                <Text size="xs" c="dimmed" lineClamp={1} title={album.artist}>
+                  {album.artist}
+                </Text>
+                <Badge color="blue" variant="light" size="xs" w="fit-content" mt={2}>
+                  {album.count} songs
+                </Badge>
+              </div>
+            </Stack>
+          </Card>
+        ))}
+      </SimpleGrid>
+    </div>
+  );
+};
+
 export default function AudioListPage() {
   const [rowData, setRowData] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
@@ -570,108 +699,18 @@ const AlbumList = ({
     return calculatedCardHeight + ROW_SPACING;
   }, [expandedChunkIndex, detailRowHeight, calculatedCardHeight]);
 
-  const Row = ({ index, style }: RowComponentProps) => {
-    // Check if this is the detail row
-    if (expandedChunkIndex !== -1 && index === expandedChunkIndex + 1) {
-      if (!selectedAlbumData) return <div style={style} />;
-      return (
-        <div style={style}>
-          <div style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 16, height: '100%' }}>
-            <Paper
-              withBorder
-              shadow="md"
-              p="xs"
-              radius="md"
-              style={{
-                borderColor: 'var(--mantine-primary-color-filled)',
-                height: '100%',
-                overflow: 'hidden'
-              }}
-            >
-              {/* Prevent click propagation so it doesn't close the album when clicking grid background */}
-              <div
-                tabIndex={0}
-                onPaste={handleContainerPaste}
-                style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Text size="sm" mb={4} pl={4} lineClamp={1} title={`${selectedAlbumData.name} - ${selectedAlbumData.artist}`}>
-                  <Text span fw={700}>{selectedAlbumData.name}</Text> - {selectedAlbumData.artist}
-                </Text>
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <TrackDataGrid
-                    tracks={selectedAlbumData.tracks}
-                    onGridReady={() => { }}
-                    onSyncToggle={handleSyncToggle}
-                    showSelectionCheckbox={false}
-                    // Use fixed height or 100% to fill the row
-                    domLayout='normal'
-                  />
-                </div>
-              </div>
-            </Paper>
-          </div>
-        </div>
-      );
-    }
-
-    const chunkIndex = getChunkIndex(index);
-    const chunk = albumChunks[chunkIndex];
-    if (!chunk) return <div style={style} />;
-
-    return (
-      <div style={style}>
-        <SimpleGrid cols={cols} spacing="md" p="xs">
-          {chunk.map((album) => (
-            <Card
-              key={album.name}
-              shadow="sm"
-              padding={8}
-              radius={0}
-              withBorder
-              style={{
-                cursor: 'pointer',
-                borderColor: selectedAlbum === album.name ? 'var(--mantine-primary-color-filled)' : undefined,
-                borderWidth: selectedAlbum === album.name ? 2 : 1,
-                // カード全体の高さは固定しない（アルバムアートのサイズに応じて変化）
-              }}
-              onClick={() => handleAlbumClick(album.name)}
-            >
-              {/* アルバムアートは常に正方形 */}
-              <Card.Section>
-                <AspectRatio ratio={1}>
-                  <Image
-                    src={getAlbumArtUrl(album.name)}
-                    w="100%"
-                    h="100%"
-                    alt={album.name}
-                    radius={0}
-                    fallbackSrc="https://placehold.co/300x300?text=No+Image"
-                  />
-                </AspectRatio>
-              </Card.Section>
-
-              {/* テキストエリアは固定の高さ（75px） */}
-              <Stack gap={2} mt={4} style={{ height: 75, flexShrink: 0 }}>
-                <Text fw={500} size="sm" lineClamp={2} title={album.name} lh={1.2} style={{ height: 34 }}>
-                  {album.name}
-                </Text>
-
-                <div style={{ marginTop: 'auto' }}>
-                  <Text size="xs" c="dimmed" lineClamp={1} title={album.artist}>
-                    {album.artist}
-                  </Text>
-                  <Badge color="blue" variant="light" size="xs" w="fit-content" mt={2}>
-                    {album.count} songs
-                  </Badge>
-                </div>
-              </Stack>
-            </Card>
-          ))}
-        </SimpleGrid>
-      </div>
-    );
-  };
+  // rowProps をメモ化して、不要な再レンダリングを防ぐ
+  const rowProps = useMemo((): AlbumRowData => ({
+    albumChunks,
+    cols,
+    selectedAlbum,
+    expandedChunkIndex,
+    selectedAlbumData,
+    handleAlbumClick,
+    handleSyncToggle,
+    handleContainerPaste,
+    getChunkIndex,
+  }), [albumChunks, cols, selectedAlbum, expandedChunkIndex, selectedAlbumData, handleAlbumClick, handleSyncToggle, handleContainerPaste, getChunkIndex]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
@@ -683,8 +722,8 @@ const AlbumList = ({
         }}
         rowCount={rowCount}
         rowHeight={getItemSize}
-        rowComponent={Row}
-        rowProps={{}}
+        rowComponent={AlbumRow}
+        rowProps={rowProps}
       />
     </div>
   );
