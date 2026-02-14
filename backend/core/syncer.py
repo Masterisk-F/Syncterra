@@ -203,31 +203,81 @@ class AdbSynchronizer(AudioSynchronizer):
         subprocess.run(cmd, shell=True)
 
     def ls_remote(self, relative_dir=""):
+        """find -maxdepth 1 -print0 でディレクトリの直下エントリを取得する。
+        ls -F1 ではファイル名に改行文字等が含まれる場合に
+        出力が分断されるため、ヌル区切りのfindを使用する。
+        """
         target = f"{self.sync_root}/{relative_dir}".rstrip("/")
-        cmd = f'adb shell ls "{self.adb_escape(target)}" -F1'
-        # Let's use shell=True for adb shell commands to be safe with escapes
-        res = subprocess.run(
-            cmd,
-            shell=True,
-            encoding="utf-8",
-            text=True,
+
+        # ディレクトリ一覧を取得
+        dirs = set()
+        cmd_dirs = self._get_adb_base_cmd() + [
+            "shell",
+            "find",
+            f"'{target}'",
+            "-maxdepth",
+            "1",
+            "-type",
+            "d",
+            "-print0",
+        ]
+        res_dirs = subprocess.run(
+            cmd_dirs,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
 
-        if res.returncode != 0 or "No such file" in res.stderr:
+        stderr = res_dirs.stderr.decode("utf-8", errors="replace")
+        if res_dirs.returncode != 0 or "No such file" in stderr:
             raise FileNotFoundError()
 
-        rt = []
-        for line in res.stdout.splitlines():
-            if not line:
+        prefix = target + "/"
+        output_dirs = res_dirs.stdout.decode(
+            "utf-8", errors="replace"
+        )
+        for entry in output_dirs.split("\0"):
+            if not entry or entry == target:
                 continue
-            if line.endswith("/"):
-                rt.append((line[:-1], True))
-            elif line.endswith("*"):
-                rt.append((line[:-1], False))
-            else:
-                rt.append((line, False))
+            if entry.startswith(prefix):
+                name = entry[len(prefix):]
+                if name:
+                    dirs.add(name)
+
+        # ファイル一覧を取得
+        cmd_files = self._get_adb_base_cmd() + [
+            "shell",
+            "find",
+            f"'{target}'",
+            "-maxdepth",
+            "1",
+            "-type",
+            "f",
+            "-print0",
+        ]
+        res_files = subprocess.run(
+            cmd_files,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        files = set()
+        if res_files.returncode == 0:
+            output_files = res_files.stdout.decode(
+                "utf-8", errors="replace"
+            )
+            for entry in output_files.split("\0"):
+                if not entry or entry == target:
+                    continue
+                if entry.startswith(prefix):
+                    name = entry[len(prefix):]
+                    if name:
+                        files.add(name)
+
+        rt = []
+        for name in dirs:
+            rt.append((name, True))
+        for name in files:
+            rt.append((name, False))
         return rt
 
 
