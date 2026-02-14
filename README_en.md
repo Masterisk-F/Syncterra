@@ -20,9 +20,38 @@ You can create and edit playlists on Syncterra.
 You can choose from ADB, FTP, or Rsync as the synchronization method.
 
 #### ADB
-Transfers music files to an Android device using ADB (Android Debug Bridge). An environment where the machine running Syncterra can connect to the Android device via ADB commands is required.
-> [!WARNING]
-> The ADB synchronization mode has not been tested and may be unstable.
+Transfers music files to an Android device using ADB (Android Debug Bridge).
+
+##### Prerequisites
+- Enable **USB Debugging** in the "Developer Options" on your Android device.
+- Install [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) on your PC and ensure the `adb` command is in your PATH.
+- Connect your PC and Android device with a USB cable and verify the device is recognized by running `adb devices`.
+
+##### Setup
+1. In the Syncterra settings page, set the synchronization method to **"ADB (Android USB)"**.
+2. Enter the destination path on the device in "Sync Destination Directory" (e.g., `/sdcard/Music`).
+3. Run the synchronization.
+
+##### Using with Docker
+When using ADB sync in a Docker environment, apply the following changes to your `docker-compose.yml`:
+
+1. Set `network_mode: "host"` on the backend service and remove the `ports` directive.
+2. Add `extra_hosts` to the frontend service to route backend traffic through the host.
+
+```yaml
+services:
+  backend:
+    network_mode: "host"
+    # Remove ports (not needed with host network)
+    ...
+
+  frontend:
+    extra_hosts:
+      - "backend:host-gateway"
+    ...
+```
+
+This allows the container to directly use the host's network stack, so ADB works as long as it is running normally on the host.
 
 #### FTP
 Transfers music files to the device using FTP (File Transfer Protocol).
@@ -149,7 +178,7 @@ Configuration files are saved under `~/.config/Syncterra/`.
 
 *   **Music Folder**: By default, the host's `~/Music` is mounted as `/music/default`. To change this, please edit the `volumes` section of `docker/docker-compose.yml`.
 *   **Database**: The SQLite database is persisted in the `db/` directory.
-*   **ADB Sync**: When synchronizing an Android device, you need to enable `network_mode: "host"` in `docker-compose.yml`.
+*   **ADB Sync**: When synchronizing an Android device in a Docker environment, set `network_mode: "host"` on the backend service and add `extra_hosts: ["backend:host-gateway"]` to the frontend service. See the [ADB section](#adb) for details.
 
 ## Software Used
 

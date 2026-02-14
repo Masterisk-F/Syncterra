@@ -149,6 +149,8 @@ class AdbSynchronizer(AudioSynchronizer):
         super().__init__(tracks, playlists, settings, log_callback)
         self.remote_os_sep = "/"
         self.sync_root = self.settings.get("sync_dest", "/sdcard/Music")
+        # adb_serialは現時点で設定する機能なし。将来用
+        self.serial = self.settings.get("adb_serial")
 
     def adb_escape(self, s):
         return (
@@ -162,6 +164,12 @@ class AdbSynchronizer(AudioSynchronizer):
             .replace("\n", "\\n")
         )
 
+    def _get_adb_base_cmd(self):
+        cmd = ["adb"]
+        if self.serial:
+            cmd.extend(["-s", self.serial])
+        return cmd
+
     def _run_cmd(self, args):
         result = subprocess.run(
             args,
@@ -173,19 +181,25 @@ class AdbSynchronizer(AudioSynchronizer):
         return result
 
     def cp(self, filepath_from, relative_path_to):
-        cmd = ["adb", "push", filepath_from, f"{self.sync_root}/{relative_path_to}"]
+        cmd = self._get_adb_base_cmd() + [
+            "push",
+            filepath_from,
+            f"{self.sync_root}/{relative_path_to}",
+        ]
         self._run_cmd(cmd)
 
     def rm_remote(self, relative_filepath_to):
         target = f"{self.sync_root}/{relative_filepath_to}"
-        cmd = f'adb shell rm -f "{self.adb_escape(target)}"'
+        adb_cmd = " ".join(self._get_adb_base_cmd())
+        cmd = f'{adb_cmd} shell rm -f "{self.adb_escape(target)}"'
         subprocess.run(
             cmd, shell=True
         )  # shell=True for complex escaping or split manually
 
     def mkdir_p_remote(self, relative_filepath_to):
         target = f"{self.sync_root}/{relative_filepath_to}"
-        cmd = f'adb shell mkdir -p "{self.adb_escape(target)}"'
+        adb_cmd = " ".join(self._get_adb_base_cmd())
+        cmd = f'{adb_cmd} shell mkdir -p "{self.adb_escape(target)}"'
         subprocess.run(cmd, shell=True)
 
     def ls_remote(self, relative_dir=""):

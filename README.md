@@ -19,9 +19,38 @@ Syncterra上でプレイリストの作成・編集が行えます。
 ### 同期方式
 同期方式はADB, FTP, Rsyncから選択できます。
 #### ADB
-ADB (Android Debug Bridge)を使用してAndroid端末に楽曲ファイルを転送します。Syncterraが動作するマシンからADBコマンドでAndroid端末に接続できる環境が必要です。
-> [!WARNING]
-> ADB同期モードはテストが行われていないため、動作が不安定な可能性があります。
+ADB (Android Debug Bridge)を使用してAndroid端末に楽曲ファイルを転送します。
+
+##### 前提条件
+- Android端末の「開発者向けオプション」で **USBデバッグ** を有効にしてください。
+- PCに [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) をインストールし、`adb` コマンドにPATHが通っている必要があります。
+- USBケーブルでPCとAndroid端末を接続し、`adb devices` でデバイスが認識されることを確認してください。
+
+##### 設定手順
+1. Syncterraの設定画面で「同期方式」を **「ADB (Android USB接続)」** に設定します。
+2. 「転送先ディレクトリ」にデバイス上のパスを入力します（例: `/sdcard/Music`）。
+3. 同期を実行します。
+
+##### Docker環境での利用
+Docker環境でADB同期を使用する場合は、`docker-compose.yml` に以下の変更を加えてください。
+
+1. backend サービスに `network_mode: "host"` を設定し、`ports` の指定を削除します。
+2. frontend サービスに `extra_hosts` を追加し、backend への通信をホスト経由にします。
+
+```yaml
+services:
+  backend:
+    network_mode: "host"
+    # ports は削除（host networkでは不要）
+    ...
+
+  frontend:
+    extra_hosts:
+      - "backend:host-gateway"
+    ...
+```
+
+これにより、コンテナがホストのネットワークを直接使用するため、ホスト側で通常通り `adb` が動作していればそのまま利用できます。
 
 #### FTP
 FTP (File Transfer Protocol)を使用して端末に楽曲ファイルを転送します。
@@ -142,7 +171,7 @@ docker-compose -f docker/docker-compose.yml up --build -d
 
 *   **音楽フォルダ**: デフォルトではホストの `~/Music` が `/music/default` としてマウントされます。変更する場合は `docker/docker-compose.yml` の `volumes` セクションを編集してください。
 *   **データベース**: `db/` ディレクトリに SQLite データベースが永続化されます。
-*   **ADB同期**: Androidデバイスを同期する場合は、`docker-compose.yml` 内の `network_mode: "host"` を有効にする必要があります。
+*   **ADB同期**: Docker環境でAndroidデバイスを同期する場合は、backend サービスに `network_mode: "host"` を設定し、frontend サービスに `extra_hosts: ["backend:host-gateway"]` を追加してください。詳細は[ADBの項](#adb)を参照してください。
 
 ## デスクトップアプリでの実行
 

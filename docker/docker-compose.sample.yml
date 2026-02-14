@@ -35,8 +35,13 @@ services:
       context: ../
       dockerfile: docker/frontend/Dockerfile
     container_name: syncterra-frontend
-    
+
     ports:
       - "8280:80"
-    
+
+    # ADB接続を使用する場合（backend に network_mode: "host" を設定した場合）、
+    # frontend から backend への通信をホスト経由にするために以下を有効にしてください。
+    # extra_hosts:
+    #   - "backend:host-gateway"
+
     restart: unless-stopped
