@@ -20,7 +20,7 @@ import {
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending } from '@tabler/icons-react';
+import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending, IconLayoutGrid, IconList } from '@tabler/icons-react';
 import { getTracks, batchUpdateTracks, getAlbumArtUrl, initAlbumArtBaseUrl } from '../../api';
 import type { Track } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
@@ -473,21 +473,34 @@ export default function AudioListPage() {
               </Group>
             )}
 
-            <Select
-              data={[
-                { value: 'tracks', label: '曲一覧' },
-                { value: 'albums', label: 'アルバム一覧' },
-              ]}
-              value={viewMode}
-              onChange={(value) => {
-                if (value) {
-                  setViewMode(value);
-                  setSelectedAlbum(null);
-                }
-              }}
-              allowDeselect={false}
-              w={150}
-            />
+            <Group gap="xs">
+              <Tooltip label="曲">
+                <ActionIcon
+                  variant={viewMode === 'tracks' ? 'filled' : 'default'}
+                  size="lg"
+                  onClick={() => {
+                    setViewMode('tracks');
+                    setSelectedAlbum(null);
+                  }}
+                  color={viewMode === 'tracks' ? 'blue' : undefined}
+                >
+                  <IconList size={20} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="アルバム">
+                <ActionIcon
+                  variant={viewMode === 'albums' ? 'filled' : 'default'}
+                  size="lg"
+                  onClick={() => {
+                    setViewMode('albums');
+                    setSelectedAlbum(null);
+                  }}
+                  color={viewMode === 'albums' ? 'blue' : undefined}
+                >
+                  <IconLayoutGrid size={20} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Group>
         </Group>
       </Paper>
