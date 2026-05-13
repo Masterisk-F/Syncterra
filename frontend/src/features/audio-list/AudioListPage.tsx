@@ -19,6 +19,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+import Cookies from 'js-cookie';
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending } from '@tabler/icons-react';
 import { getTracks, batchUpdateTracks, getAlbumArtUrl, initAlbumArtBaseUrl } from '../../api';
@@ -189,9 +190,9 @@ export default function AudioListPage() {
   const [viewMode, setViewMode] = useState<string>('tracks');
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
 
-  // Sort State
-  const [sortBy, setSortBy] = useState<SortBy>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  // Sort State - album list
+  const [sortBy, setSortBy] = useState<SortBy>((Cookies.get('audio-list-sort-by') || 'name') as SortBy);
+  const [sortOrder, setSortOrder] = useState<SortOrder>((Cookies.get('audio-list-sort-order') || 'asc') as SortOrder);
 
   // Responsive columns for Album Grid
   const isMobile = useMediaQuery('(max-width: 480px)');
@@ -271,6 +272,25 @@ export default function AudioListPage() {
 
   const handleAlbumClick = (albumName: string) => {
     setSelectedAlbum(prev => prev === albumName ? null : albumName);
+  };
+
+  const handleSortByChange = (val: string | null) => {
+    if (val) {
+      setSortBy(val as SortBy);
+      Cookies.set('audio-list-sort-by', val, { expires: 365 });
+    }
+  };
+
+  const handleSortOrderToggle = () => {
+    const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    setSortOrder(newOrder);
+    Cookies.set('audio-list-sort-order', newOrder, { expires: 365 });
+  };
+
+  // Track sort state
+  const handleTrackSortChanged = (field: string, order: 'asc' | 'desc') => {
+    Cookies.set('audio-list-track-sort-field', field, { expires: 365 });
+    Cookies.set('audio-list-track-sort-order', order, { expires: 365 });
   };
 
   // Load tracks from API
@@ -457,7 +477,7 @@ export default function AudioListPage() {
                     { value: 'updated', label: '更新日時' },
                   ]}
                   value={sortBy}
-                  onChange={(val) => setSortBy(val as SortBy)}
+                  onChange={handleSortByChange}
                   w={150}
                   allowDeselect={false}
                 />
@@ -465,7 +485,7 @@ export default function AudioListPage() {
                   <ActionIcon
                     variant="default"
                     size="lg"
-                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    onClick={handleSortOrderToggle}
                   >
                     {sortOrder === 'asc' ? <IconSortAscending size={20} /> : <IconSortDescending size={20} />}
                   </ActionIcon>
@@ -519,8 +539,9 @@ export default function AudioListPage() {
               onGridReady={onGridReady}
               onSyncToggle={handleSyncToggle}
               showSelectionCheckbox={false}
-              defaultSortField="added_date"
-              defaultSortOrder="desc"
+              defaultSortField={(Cookies.get('audio-list-track-sort-field') || 'added_date') as keyof Track}
+              defaultSortOrder={(Cookies.get('audio-list-track-sort-order') || 'desc') as 'asc' | 'desc'}
+              onSortChanged={handleTrackSortChanged}
             />
           </div>
         ) : (

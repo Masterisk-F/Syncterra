@@ -22,6 +22,7 @@ interface TrackDataGridProps {
   domLayout?: 'normal' | 'autoHeight' | 'print';
   defaultSortField?: keyof Track;
   defaultSortOrder?: 'asc' | 'desc';
+  onSortChanged?: (field: string, order: 'asc' | 'desc') => void;
 }
 
 // ファイルサイズをMB表示にフォーマット
@@ -66,6 +67,7 @@ export default function TrackDataGrid({
   domLayout,
   defaultSortField,
   defaultSortOrder,
+  onSortChanged,
 }: TrackDataGridProps) {
   const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
 
@@ -285,6 +287,13 @@ export default function TrackDataGrid({
       onCellKeyDown={onCellKeyDown}
       getRowId={(params) => String(params.data.id)}
       domLayout={domLayout}
+      onSortChanged={onSortChanged ? (event) => {
+        const columnState = event.api.getColumnState();
+        const sortedCol = columnState.find(col => col.sort != null);
+        if (sortedCol && sortedCol.colId && sortedCol.sort) {
+          onSortChanged(sortedCol.colId, sortedCol.sort);
+        }
+      } : undefined}
     />
   );
 }
