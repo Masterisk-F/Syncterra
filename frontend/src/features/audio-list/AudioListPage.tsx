@@ -20,6 +20,7 @@ import {
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import Cookies from 'js-cookie';
+import { getValidatedCookie, VALID_SORT_BY, VALID_SORT_ORDER, VALID_TRACK_SORT_FIELDS } from '../../utils/cookieUtils';
 import { notifications } from '@mantine/notifications';
 import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending } from '@tabler/icons-react';
 import { getTracks, batchUpdateTracks, getAlbumArtUrl, initAlbumArtBaseUrl } from '../../api';
@@ -191,8 +192,12 @@ export default function AudioListPage() {
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
 
   // Sort State - album list
-  const [sortBy, setSortBy] = useState<SortBy>((Cookies.get('audio-list-sort-by') || 'name') as SortBy);
-  const [sortOrder, setSortOrder] = useState<SortOrder>((Cookies.get('audio-list-sort-order') || 'asc') as SortOrder);
+  const [sortBy, setSortBy] = useState<SortBy>(
+    getValidatedCookie('audio-list-sort-by', VALID_SORT_BY, 'name')
+  );
+  const [sortOrder, setSortOrder] = useState<SortOrder>(
+    getValidatedCookie('audio-list-sort-order', VALID_SORT_ORDER, 'asc')
+  );
 
   // Responsive columns for Album Grid
   const isMobile = useMediaQuery('(max-width: 480px)');
@@ -539,8 +544,8 @@ export default function AudioListPage() {
               onGridReady={onGridReady}
               onSyncToggle={handleSyncToggle}
               showSelectionCheckbox={false}
-              defaultSortField={(Cookies.get('audio-list-track-sort-field') || 'added_date') as keyof Track}
-              defaultSortOrder={(Cookies.get('audio-list-track-sort-order') || 'desc') as 'asc' | 'desc'}
+              defaultSortField={getValidatedCookie('audio-list-track-sort-field', VALID_TRACK_SORT_FIELDS, 'added_date')}
+              defaultSortOrder={getValidatedCookie('audio-list-track-sort-order', VALID_SORT_ORDER, 'desc')}
               onSortChanged={handleTrackSortChanged}
             />
           </div>
