@@ -145,6 +145,6 @@ def test_process_image_prioritizes_front_cover(mock_image_open):
         call_args = mock_image_open.call_args
         assert call_args is not None, "Image.open was not called"
         bytes_io_arg = call_args[0][0]
-        # 現状の実装では "image1_data" が渡されてしまいエラーになるはず
+        # 修正後は正しく image3_data が選択されることを確認する
         assert bytes_io_arg.getvalue() == b"image3_data", "Did not select APIC type=3"
 
