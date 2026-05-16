@@ -261,10 +261,13 @@ class AlbumArtScanner:
                     # MP3 ID3
                     if hasattr(f, "tags"):
                         # MP3
-                        for key in f.tags.keys():
-                            if key.startswith("APIC"):
-                                img_data = f.tags[key].data
-                                break
+                        apic_tags = [f.tags[k] for k in f.tags.keys() if isinstance(k, str) and k.startswith("APIC")]
+                        if apic_tags:
+                            front_cover = next((tag for tag in apic_tags if getattr(tag, "type", -1) == 3), None)
+                            if front_cover:
+                                img_data = front_cover.data
+                            else:
+                                img_data = apic_tags[0].data
                         # MP4
                         if not img_data and "covr" in f.tags:
                             # MP4 covr is list of data
