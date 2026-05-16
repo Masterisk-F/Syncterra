@@ -104,3 +104,47 @@ async def test_album_scanner_update_logic():
         await scanner._process_album(session, "testalbum", "TestAlbum", [track])
         
         scanner._process_image.assert_not_called()
+
+@patch("backend.core.album_art_scanner.Image.open")
+def test_process_image_prioritizes_front_cover(mock_image_open):
+    """
+    [Scanner] APIC type=3 (Front Cover) 優先のテスト
+
+    目的:
+    複数のAPICタグが存在する場合、最初に見つかったタグではなく、
+    type=3のタグが優先して選択されるかを検証する。
+    """
+    with patch("mutagen.File") as mock_file:
+        mock_f = MagicMock()
+
+        # 先に見つかる想定のtype=1
+        tag1 = MagicMock()
+        tag1.type = 1
+        tag1.data = b"image1_data"
+
+        # フロントカバー(type=3)
+        tag3 = MagicMock()
+        tag3.type = 3
+        tag3.data = b"image3_data"
+
+        mock_f.tags = {
+            "APIC:1": tag1,
+            "APIC:3": tag3
+        }
+        mock_file.return_value = mock_f
+
+        # Image.open のモック設定
+        mock_img = MagicMock()
+        mock_img.mode = "RGB"
+        mock_img.size = (100, 100)
+        mock_image_open.return_value.__enter__.return_value = mock_img
+
+        scanner = AlbumArtScanner()
+        scanner._process_image("dummy.mp3", "meta")
+
+        call_args = mock_image_open.call_args
+        assert call_args is not None, "Image.open was not called"
+        bytes_io_arg = call_args[0][0]
+        # 現状の実装では "image1_data" が渡されてしまいエラーになるはず
+        assert bytes_io_arg.getvalue() == b"image3_data", "Did not select APIC type=3"
+
