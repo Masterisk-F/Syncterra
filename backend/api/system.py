@@ -19,11 +19,14 @@ def log_to_ws(message: str):
     # For simplicity/safety in this context (threadpool), let's just log to console
     # and rely on the fact that we can't easily await here without loop reference.
     # BUT requirement says "WebSocketでの進捗通知".
-    # Solution: The service runs in a thread, but checking manager.broadcast is a coroutine.
+    # Solution: The service runs in a thread, but checking manager.broadcast
+    # is a coroutine.
     # We can pass an async wrapper if we run service in standard async way?
     # ScannerService run_scan is async. SyncService run_sync is async (wraps thread).
-    # So we can pass an async callback for Scanner, but SyncService internal methods are sync.
-    # Let's fix SyncService to accept a sync callback that maybe pushes to a queue or uses run_coroutine_threadsafe.
+    # So we can pass an async callback for Scanner, but SyncService internal methods
+    # are sync.
+    # Let's fix SyncService to accept a sync callback that maybe pushes to a queue
+    # or uses run_coroutine_threadsafe.
 
     # Actually, let's just assume we log to logger for now, and try to hook up WS.
     # In FastAPI, we can grab the loop from the request?

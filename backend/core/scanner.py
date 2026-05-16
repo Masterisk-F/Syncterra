@@ -116,7 +116,8 @@ class ScannerService:
                     # ファイルの変更、またはスキャン設定によるパス変更のチェック
                     # needs_meta_update: ファイル自体（タイムスタンプ）が更新されたか
                     # path_changed: スキャンルートディレクトリが変更され、同期先の相対パスが変わったか
-                    # (例: /music をスキャン対象にしていたのを /music/default に変更した場合などにtrueになる)
+                    # (例: /music をスキャン対象にしていたのを /music/default
+                    # に変更した場合などにtrueになる)
                     if track_in_db.missing:
                         track_in_db.missing = False
                         logger.info(f"File recovered from missing: {file_path}")
@@ -126,7 +127,8 @@ class ScannerService:
 
                     if needs_meta_update or path_changed or force:
                         if needs_meta_update or force:
-                            # ファイルが変更されている場合、または強制スキャンの場合はメタデータを再抽出
+                            # ファイルが変更されている場合、
+                            # または強制スキャンの場合はメタデータを再抽出
                             meta = await run_in_threadpool(
                                 self._extract_metadata, file_path
                             )
@@ -143,7 +145,8 @@ class ScannerService:
 
                         if path_changed:
                             # スキャンディレクトリ設定が変更された場合、相対パスのみを更新する。
-                            # ファイル実体に変更がない場合は、重いメタデータ抽出はスキップしてDB上のパスのみを修正する。
+                            # ファイル実体に変更がない場合は、重いメタデータ抽出はスキップして
+                            # DB上のパスのみを修正する。
                             track_in_db.relative_path = rel_path
                             if not needs_meta_update:
                                 updated_count += 1
@@ -208,7 +211,10 @@ class ScannerService:
             except Exception as e:
                 logger.error(f"Album art scan failed: {e}")
 
-            summary = f"Scan complete. Added: {added_count}, Updated: {updated_count}, Missing: {missing_count}"
+            summary = (
+                f"Scan complete. Added: {added_count}, "
+                f"Updated: {updated_count}, Missing: {missing_count}"
+            )
             logger.info(summary)
             if log_callback:
                 log_callback(summary)
