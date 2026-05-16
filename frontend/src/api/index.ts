@@ -63,8 +63,8 @@ export const deleteTracks = async (ids: number[]): Promise<void> => {
 
 // System API
 
-export const scanFiles = async (): Promise<void> => {
-  await apiClient.post('/api/scan');
+export const scanFiles = async (force: boolean = false): Promise<void> => {
+  await apiClient.post('/api/scan', null, { params: { force } });
 };
 
 export const syncFiles = async (): Promise<void> => {

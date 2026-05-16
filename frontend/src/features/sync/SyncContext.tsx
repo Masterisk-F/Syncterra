@@ -17,7 +17,7 @@ interface SyncContextType {
   isLogDrawerOpen: boolean;
   setIsLogDrawerOpen: (open: boolean) => void;
   handleSync: (trackCount?: number) => Promise<void>;
-  handleScan: () => Promise<void>;
+  handleScan: (force?: boolean) => Promise<void>;
   addLog: (message: string) => void;
   isConnected: boolean;
   lastUpdateId: number;
@@ -118,7 +118,7 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({
     [isSyncing, isScanning, addLog]
   );
 
-  const handleScan = useCallback(async () => {
+  const handleScan = useCallback(async (force = false) => {
     if (isSyncing || isScanning) {
       console.warn(
         'Sync or Scan is already in progress. Ignoring handleScan call.'
@@ -131,10 +131,12 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({
     setIsLogDrawerOpen(true);
     setProgress(0);
     setLogs([]);
-    addLog('スキャンを開始しました...');
+
+    const startMsg = force ? '強制再スキャンを開始しました...' : 'スキャンを開始しました...';
+    addLog(startMsg);
 
     try {
-      await scanFiles();
+      await scanFiles(force);
       // 完了はWebSocketメッセージ ("Scan complete") で検知してリロードフラグを立てる
     } catch (error) {
       console.error('Scan failed:', error);
