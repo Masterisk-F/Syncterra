@@ -180,12 +180,11 @@ class AlbumArtScanner:
                 has_art = False
                 # ID3 (MP3)
                 if hasattr(f, "tags") and f.tags:
-                    if "APIC:" in f.tags: # Mutagen generic ID3 key? No. 
-                        # Iterate tags to find APIC
-                        for key in f.tags.keys():
-                            if key.startswith("APIC"):
-                                has_art = True
-                                break
+                    # Iterate tags to find APIC (MP3 ID3)
+                    for key in f.tags.keys():
+                        if key.startswith("APIC"):
+                            has_art = True
+                            break
                 # MP4
                 if hasattr(f, "tags") and "covr" in f.tags:
                     has_art = True
