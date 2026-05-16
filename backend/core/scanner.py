@@ -30,8 +30,8 @@ class ScannerService:
     def _get_setting(self, key: str, default=None):
         return self.settings.get(key, default)
 
-    async def run_scan(self, progress_callback=None, log_callback=None):
-        logger.info("Scan started")
+    async def run_scan(self, progress_callback=None, log_callback=None, force: bool = False):
+        logger.info(f"Scan started (force={force})")
         if log_callback:
             log_callback("Scan started")
 
@@ -124,9 +124,9 @@ class ScannerService:
                     needs_meta_update = track_in_db.last_modified != mtime_dt
                     path_changed = track_in_db.relative_path != rel_path
 
-                    if needs_meta_update or path_changed:
-                        if needs_meta_update:
-                            # ファイルが変更されている場合はメタデータを再抽出
+                    if needs_meta_update or path_changed or force:
+                        if needs_meta_update or force:
+                            # ファイルが変更されている場合、または強制スキャンの場合はメタデータを再抽出
                             meta = await run_in_threadpool(
                                 self._extract_metadata, file_path
                             )
@@ -203,7 +203,7 @@ class ScannerService:
             try:
                 from .album_art_scanner import AlbumArtScanner
                 art_scanner = AlbumArtScanner()
-                await art_scanner.scan_all()
+                await art_scanner.scan_all(force=force)
                 logger.info("Album art scan trigger completed")
             except Exception as e:
                 logger.error(f"Album art scan failed: {e}")
