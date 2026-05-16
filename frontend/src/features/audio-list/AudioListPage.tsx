@@ -17,6 +17,7 @@ import {
   AspectRatio,
   ActionIcon,
   Tooltip,
+  Menu,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import Cookies from 'js-cookie';
@@ -342,6 +343,16 @@ export default function AudioListPage() {
     await handleScan();
   };
 
+  const onForceScanClick = async () => {
+    if (
+      window.confirm(
+        '全ファイルのメタデータとアルバムアートを強制的に再読込します。\n処理時間が長くなる可能性があります。よろしいですか？'
+      )
+    ) {
+      await handleScan(true);
+    }
+  };
+
   // Save Sync Settings - syncフラグをバックエンドに保存
   const handleSaveSync = async () => {
     try {
@@ -448,16 +459,35 @@ export default function AudioListPage() {
               {isConnected ? 'WebSocket接続中' : 'オフライン'}
             </Badge>
 
-            <Button
-              leftSection={<IconRefresh size={20} />}
-              onClick={onScanClick}
-              loading={isScanning}
-              disabled={isSyncing}
-              variant="default"
-              size="sm"
-            >
-              スキャン
-            </Button>
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <Button
+                  leftSection={<IconRefresh size={20} />}
+                  loading={isScanning}
+                  disabled={isSyncing}
+                  variant="default"
+                  size="sm"
+                >
+                  スキャン
+                </Button>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconRefresh size={14} />}
+                  onClick={onScanClick}
+                >
+                  通常スキャン
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconRefresh size={14} />}
+                  onClick={onForceScanClick}
+                  color="red"
+                >
+                  強制再スキャン
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
 
             <Button
               leftSection={<IconDeviceFloppy size={20} />}
