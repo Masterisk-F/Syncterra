@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import re
 from typing import Optional, Tuple
 
 from fastapi.concurrency import run_in_threadpool
@@ -72,10 +73,7 @@ class AlbumArtScanner:
 
             norm_name = album_name.lower().strip()
             if norm_name not in albums_map:
-                albums_map[norm_name] = {
-                    "display_name": album_name,
-                    "tracks": []
-                }
+                albums_map[norm_name] = {"display_name": album_name, "tracks": []}
             albums_map[norm_name]["tracks"].append(t)
 
         logger.info(f"Found {len(albums_map)} albums to process")
@@ -109,7 +107,7 @@ class AlbumArtScanner:
 
         def track_sort_key(t):
             # Parse track num
-            num = 10000 # default high
+            num = 10000  # default high
             if t.track_num:
                 try:
                     # Handle "1/10"
@@ -123,9 +121,6 @@ class AlbumArtScanner:
         if not sorted_tracks:
             return
 
-        representative_track = sorted_tracks[0]
-        track_dir = os.path.dirname(representative_track.file_path)
-
         # Find local image file first?
         # Spec says:
         # 1. Metadata of representative track
@@ -134,9 +129,9 @@ class AlbumArtScanner:
         # Re-reading spec: "上の方から順に探し、なければ下へ探す"
         # 1. Metadata
         # 2. Files
-
-        source = await run_in_threadpool(self._find_source, sorted_tracks[0].file_path, album_display)
-
+        source = await run_in_threadpool(
+            self._find_source, sorted_tracks[0].file_path, album_display
+        )
         if not source:
             # No art found
             return
@@ -161,17 +156,21 @@ class AlbumArtScanner:
 
             # Update existing
             logger.info(f"Updating art for {album_display} from {source_path}")
-            image_data = await run_in_threadpool(self._process_image, source_path, source_type)
+            image_data = await run_in_threadpool(
+                self._process_image, source_path, source_type
+            )
             if image_data:
                 existing.image_data = image_data
                 existing.source_path = source_path
                 existing.source_type = source_type
                 existing.source_mtime = source_mtime
-                existing.album_display = album_display # Update display name strictly
+                existing.album_display = album_display  # Update display name strictly
         else:
             # Create new
             logger.info(f"Creating art for {album_display} from {source_path}")
-            image_data = await run_in_threadpool(self._process_image, source_path, source_type)
+            image_data = await run_in_threadpool(
+                self._process_image, source_path, source_type
+            )
             if image_data:
                 new_art = AlbumArt(
                     album_normalized=album_norm,
@@ -179,11 +178,13 @@ class AlbumArtScanner:
                     image_data=image_data,
                     source_path=source_path,
                     source_type=source_type,
-                    source_mtime=source_mtime
+                    source_mtime=source_mtime,
                 )
                 session.add(new_art)
 
-    def _find_source(self, track_path: str, album_name: str) -> Optional[Tuple[str, str, float]]:
+    def _find_source(
+        self, track_path: str, album_name: str
+    ) -> Optional[Tuple[str, str, float]]:
         """
         Returns (type, path, mtime)
         type: 'meta' or 'file'
@@ -191,18 +192,18 @@ class AlbumArtScanner:
         # 1. Check Metadata
         try:
             from mutagen import File
+
             f = File(track_path)
             if f:
                 # Check for embedded art
                 has_art = False
                 # ID3 (MP3)
                 if hasattr(f, "tags") and f.tags:
-                    if "APIC:" in f.tags: # Mutagen generic ID3 key? No.
-                        # Iterate tags to find APIC
-                        for key in f.tags.keys():
-                            if key.startswith("APIC"):
-                                has_art = True
-                                break
+                    # Iterate tags to find APIC (MP3 ID3)
+                    for key in f.tags.keys():
+                        if key.startswith("APIC"):
+                            has_art = True
+                            break
                 # MP4
                 if hasattr(f, "tags") and "covr" in f.tags:
                     has_art = True
@@ -221,39 +222,42 @@ class AlbumArtScanner:
         # albumart ...
 
         track_dir = os.path.dirname(track_path)
-        candidates = []
 
         # Priority 1: ALBUM_NAME.(jpg|png)
         # Try exact album name, case insensitive?
-        # Spec: "楽曲ファイルのアルバム名をALBUMとしたとき、その楽曲ファイルと同じフォルダの”ALBUM.jpg”..."
+        # Spec: "楽曲ファイルのアルバム名をALBUMとしたとき、"
+        # "その楽曲ファイルと同じフォルダの”ALBUM.jpg”..."
 
         # Clean album name for filename?
         # Just assume simple string match for now.
 
         # Patterns to search
-        search_patterns = [
-            album_name, # ALBUM
-            "albumart",
-            "AlbumArt",
-            "AlbumArtSmall"
-        ]
+        placeholder = "___SPECIAL___"
+        temp_name = re.sub(r'[\\/:*?"<>|]', placeholder, album_name)
+        escaped_name = re.escape(temp_name)
+        regex_pattern = escaped_name.replace(placeholder, ".*")
+        compiled_pattern = re.compile(f"^{regex_pattern}$", re.IGNORECASE)
 
         try:
             files_in_dir = os.listdir(track_dir)
         except OSError:
             return None
 
-        for pattern in search_patterns:
+        # Priority 1: Match album name via regex (ignoring case)
+        for f in files_in_dir:
+            base_name, ext = os.path.splitext(f)
+            if ext.lower() in self.IMAGE_EXTENSIONS:
+                if compiled_pattern.match(base_name):
+                    full_path = os.path.join(track_dir, f)
+                    mtime = os.path.getmtime(full_path)
+                    return ("file", full_path, mtime)
+
+        # Priority 2: Standard filenames (folder, cover, etc.)
+        for pattern in self.ALBUM_ART_FILENAMES:
             for ext in self.IMAGE_EXTENSIONS:
-                # Try exact case first? Spec says "拡張子は大文字も探す".
-                # But also filenames? "ALBUM.jpg", "ALBUM.png", "albumart.jpg"...
-
-                # Check case-insensitive match against files_in_dir
                 target = f"{pattern}{ext}"
-
                 for f in files_in_dir:
                     if f.lower() == target.lower():
-                        # Found match
                         full_path = os.path.join(track_dir, f)
                         mtime = os.path.getmtime(full_path)
                         return ("file", full_path, mtime)
@@ -272,15 +276,27 @@ class AlbumArtScanner:
                     img_data = f.read()
             elif source_type == "meta":
                 from mutagen import File
+
                 f = File(path)
                 if f:
                     # Extract data
                     # MP3 ID3
                     if hasattr(f, "tags"):
                         # MP3
-                        apic_tags = [f.tags[k] for k in f.tags.keys() if isinstance(k, str) and k.startswith("APIC")]
+                        apic_tags = [
+                            f.tags[k]
+                            for k in f.tags.keys()
+                            if isinstance(k, str) and k.startswith("APIC")
+                        ]
                         if apic_tags:
-                            front_cover = next((tag for tag in apic_tags if getattr(tag, "type", -1) == 3), None)
+                            front_cover = next(
+                                (
+                                    tag
+                                    for tag in apic_tags
+                                    if getattr(tag, "type", -1) == 3
+                                ),
+                                None,
+                            )
                             if front_cover:
                                 img_data = front_cover.data
                             else:

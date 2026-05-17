@@ -85,10 +85,7 @@ async def test_album_scanner_update_logic():
     """
     scanner = AlbumArtScanner()
     track = Track(
-        id=1,
-        album="TestAlbum",
-        file_path="/music/TestAlbum/track.mp3",
-        track_num="1",
+        id=1, album="TestAlbum", file_path="/music/TestAlbum/track.mp3", track_num="1"
     )
 
     # ソース発見のモック
@@ -173,9 +170,7 @@ def test_process_image_prioritizes_front_cover(mock_image_open):
         assert call_args is not None, "Image.open was not called"
         bytes_io_arg = call_args[0][0]
         # 修正後は正しく image3_data が選択されることを確認する
-        assert (
-            bytes_io_arg.getvalue() == b"image3_data"
-        ), "Did not select APIC type=3"
+        assert bytes_io_arg.getvalue() == b"image3_data", "Did not select APIC type=3"
 
 
 @pytest.mark.asyncio
@@ -232,3 +227,114 @@ async def test_album_scanner_force_rescan():
         # 検証: mtime が同じでも _process_image が呼ばれたか
         assert scanner._process_image.called
         assert existing_art.image_data == b"forced_data"
+
+
+@pytest.mark.asyncio
+async def test_find_source_apic_with_description():
+    """
+    [Scanner] ID3 APIC判定のテスト
+
+    目的:
+    APIC:front cover のように説明文を含むキーでも
+    正しく埋め込みアートを検出できるか検証する。
+    """
+    scanner = AlbumArtScanner()
+    track_path = "/music/test.mp3"
+
+    with (
+        patch("mutagen.File") as mock_mutagen_file,
+        patch("os.path.exists") as mock_exists,
+        patch("os.path.getmtime") as mock_mtime,
+        patch("os.listdir") as mock_listdir,
+    ):
+        # モックの設定: APIC:front cover というキーを持つ
+        mock_file = MagicMock()
+        mock_file.tags = {"APIC:front cover": MagicMock()}
+        # MagicMockは属性アクセスで新しいMockを返すので、
+        # 存在しないはずの属性を明示的に削除またはFalseにする必要がある
+        del mock_file.pictures
+        mock_mutagen_file.return_value = mock_file
+        mock_exists.return_value = True
+        mock_mtime.return_value = 1234.5
+        mock_listdir.return_value = []  # フォルダ内には何もない
+
+        result = scanner._find_source(track_path, "Test Album")
+        print(f"DEBUG: result={result}")
+
+        # 検証: meta タイプとして検出されること
+        assert result == ("meta", track_path, 1234.5)
+
+
+@pytest.mark.asyncio
+async def test_find_source_standard_filenames():
+    """
+    [Scanner] 標準ファイル名の検索テスト
+
+    目的:
+    folder.jpg などの標準的なファイル名が検索対象に含まれているか検証する。
+    """
+    scanner = AlbumArtScanner()
+    track_path = "/music/test.mp3"
+
+    with (
+        patch("mutagen.File") as mock_mutagen_file,
+        patch("os.path.exists") as mock_exists,
+        patch("os.path.getmtime") as mock_mtime,
+        patch("os.listdir") as mock_listdir,
+    ):
+        # メタデータにはアートなし
+        mock_file = MagicMock()
+        mock_file.tags = {}
+        del mock_file.pictures
+        mock_mutagen_file.return_value = mock_file
+
+        mock_exists.return_value = True
+        mock_mtime.return_value = 1234.5
+
+        # フォルダ内には folder.jpg がある
+        mock_listdir.return_value = ["folder.jpg"]
+
+        result = scanner._find_source(track_path, "Test Album")
+
+        # 検証: file タイプとして検出されること
+        assert result == ("file", "/music/folder.jpg", 1234.5)
+
+
+@pytest.mark.asyncio
+async def test_find_source_album_name_with_special_chars():
+    """
+    [Scanner] 特殊文字を含むアルバム名の検索テスト
+
+    目的:
+    アルバム名にコロンなどの特殊文字が含まれる場合でも、ファイルシステムで許可される
+    形式（特殊文字除去）で正しく画像ファイルを見つけられるか検証する。
+    """
+    scanner = AlbumArtScanner()
+    track_path = "/music/test.mp3"
+    album_name = "B-Side IDOL (Goddess of Victory: NIKKE Original Soundtrack)"
+    # 特殊文字を別の文字（アンダースコアなど）に置換したファイル名
+    safe_filename = "B-Side IDOL (Goddess of Victory_ NIKKE Original Soundtrack).jpg"
+
+    with (
+        patch("mutagen.File") as mock_mutagen_file,
+        patch("os.path.exists") as mock_exists,
+        patch("os.path.getmtime") as mock_mtime,
+        patch("os.listdir") as mock_listdir,
+    ):
+        # メタデータにはアートなし
+        mock_file = MagicMock()
+        mock_file.tags = {}
+        del mock_file.pictures
+        mock_mutagen_file.return_value = mock_file
+
+        mock_exists.return_value = True
+        mock_mtime.return_value = 1234.5
+
+        # フォルダ内には特殊文字除去済みのファイルと標準ファイルの両方がある
+        # 優先順位（safe_album_name > 標準ファイル名）を検証
+        mock_listdir.return_value = [safe_filename, "folder.jpg"]
+
+        result = scanner._find_source(track_path, album_name)
+
+        # 検証: 標準ファイルよりも特殊文字除去済みが優先して選択されること
+        assert result == ("file", f"/music/{safe_filename}", 1234.5)

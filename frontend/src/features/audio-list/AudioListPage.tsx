@@ -246,6 +246,18 @@ export default function AudioListPage() {
 
     const albumList = Array.from(map.values());
 
+    // アルバム内のトラックをトラック番号順にソート
+    albumList.forEach(album => {
+      album.tracks.sort((a, b) => {
+        const parseTrackNum = (numStr: string | null) => {
+          if (!numStr) return 9999;
+          const match = numStr.match(/^(\d+)/);
+          return match ? parseInt(match[1], 10) : 9999;
+        };
+        return parseTrackNum(a.track_num) - parseTrackNum(b.track_num);
+      });
+    });
+
     // Sort albums
     return albumList.sort((a, b) => {
       let comparison = 0;
