@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import re
 from typing import Optional, Tuple
 
 from fastapi.concurrency import run_in_threadpool
@@ -83,13 +84,21 @@ class AlbumArtScanner:
         async with ArtSessionLocal() as art_session:
             # Verify/Update each album
             for norm_name, data in albums_map.items():
-                await self._process_album(art_session, norm_name, data["display_name"], data["tracks"])
-            
+                await self._process_album(
+                    art_session, norm_name, data["display_name"], data["tracks"]
+                )
+
             await art_session.commit()
             
         logger.info("Album Art Scan finished")
 
-    async def _process_album(self, session: AsyncSession, album_norm: str, album_display: str, tracks: list):
+    async def _process_album(
+        self,
+        session: AsyncSession,
+        album_norm: str,
+        album_display: str,
+        tracks: list,
+    ):
         # 1. Determine best source
         # Sort tracks to find "lowest track number" or "alphabetical"
         # track_num is string "1/12", "1", "01" etc.
@@ -110,10 +119,7 @@ class AlbumArtScanner:
         if not sorted_tracks:
             return
 
-        representative_track = sorted_tracks[0]
-        track_dir = os.path.dirname(representative_track.file_path)
-        
-        # Find local image file first? 
+        # Find local image file first?
         # Spec says:
         # 1. Metadata of representative track
         # 2. Local file (ALBUM.jpg, etc.)
@@ -122,7 +128,9 @@ class AlbumArtScanner:
         # 1. Metadata
         # 2. Files
         
-        source = await run_in_threadpool(self._find_source, sorted_tracks[0].file_path, album_display)
+        source = await run_in_threadpool(
+            self._find_source, sorted_tracks[0].file_path, album_display
+        )
         
         if not source:
             # No art found
@@ -138,23 +146,30 @@ class AlbumArtScanner:
         if existing:
             # Check if update needed
             # Valid source replacement? Or same source updated?
-            if existing.source_path == source_path and existing.source_mtime == source_mtime:
+            if (
+                existing.source_path == source_path
+                and existing.source_mtime == source_mtime
+            ):
                 # No change
                 return
-            
+
             # Update existing
             logger.info(f"Updating art for {album_display} from {source_path}")
-            image_data = await run_in_threadpool(self._process_image, source_path, source_type)
+            image_data = await run_in_threadpool(
+                self._process_image, source_path, source_type
+            )
             if image_data:
                 existing.image_data = image_data
                 existing.source_path = source_path
                 existing.source_type = source_type
                 existing.source_mtime = source_mtime
-                existing.album_display = album_display # Update display name strictly
+                existing.album_display = album_display  # Update display name strictly
         else:
             # Create new
             logger.info(f"Creating art for {album_display} from {source_path}")
-            image_data = await run_in_threadpool(self._process_image, source_path, source_type)
+            image_data = await run_in_threadpool(
+                self._process_image, source_path, source_type
+            )
             if image_data:
                 new_art = AlbumArt(
                     album_normalized=album_norm,
@@ -162,11 +177,13 @@ class AlbumArtScanner:
                     image_data=image_data,
                     source_path=source_path,
                     source_type=source_type,
-                    source_mtime=source_mtime
+                    source_mtime=source_mtime,
                 )
                 session.add(new_art)
 
-    def _find_source(self, track_path: str, album_name: str) -> Optional[Tuple[str, str, float]]:
+    def _find_source(
+        self, track_path: str, album_name: str
+    ) -> Optional[Tuple[str, str, float]]:
         """
         Returns (type, path, mtime)
         type: 'meta' or 'file'
@@ -180,12 +197,11 @@ class AlbumArtScanner:
                 has_art = False
                 # ID3 (MP3)
                 if hasattr(f, "tags") and f.tags:
-                    if "APIC:" in f.tags: # Mutagen generic ID3 key? No. 
-                        # Iterate tags to find APIC
-                        for key in f.tags.keys():
-                            if key.startswith("APIC"):
-                                has_art = True
-                                break
+                    # Iterate tags to find APIC (MP3 ID3)
+                    for key in f.tags.keys():
+                        if key.startswith("APIC"):
+                            has_art = True
+                            break
                 # MP4
                 if hasattr(f, "tags") and "covr" in f.tags:
                     has_art = True
@@ -204,43 +220,46 @@ class AlbumArtScanner:
         # albumart ...
         
         track_dir = os.path.dirname(track_path)
-        candidates = []
-        
+
         # Priority 1: ALBUM_NAME.(jpg|png)
         # Try exact album name, case insensitive?
-        # Spec: "楽曲ファイルのアルバム名をALBUMとしたとき、その楽曲ファイルと同じフォルダの”ALBUM.jpg”..."
+        # Spec: "楽曲ファイルのアルバム名をALBUMとしたとき、"
+        # "その楽曲ファイルと同じフォルダの”ALBUM.jpg”..."
         
         # Clean album name for filename?
         # Just assume simple string match for now.
         
         # Patterns to search
-        search_patterns = [
-            album_name, # ALBUM
-            "albumart",
-            "AlbumArt",
-            "AlbumArtSmall"
-        ]
-        
+        placeholder = "___SPECIAL___"
+        temp_name = re.sub(r'[\\/:*?"<>|]', placeholder, album_name)
+        escaped_name = re.escape(temp_name)
+        regex_pattern = escaped_name.replace(placeholder, '.*')
+        compiled_pattern = re.compile(f"^{regex_pattern}$", re.IGNORECASE)
+
         try:
             files_in_dir = os.listdir(track_dir)
         except OSError:
             return None
-            
-        for pattern in search_patterns:
+
+        # Priority 1: Match album name via regex (ignoring case)
+        for f in files_in_dir:
+            base_name, ext = os.path.splitext(f)
+            if ext.lower() in self.IMAGE_EXTENSIONS:
+                if compiled_pattern.match(base_name):
+                    full_path = os.path.join(track_dir, f)
+                    mtime = os.path.getmtime(full_path)
+                    return ("file", full_path, mtime)
+
+        # Priority 2: Standard filenames (folder, cover, etc.)
+        for pattern in self.ALBUM_ART_FILENAMES:
             for ext in self.IMAGE_EXTENSIONS:
-                # Try exact case first? Spec says "拡張子は大文字も探す".
-                # But also filenames? "ALBUM.jpg", "ALBUM.png", "albumart.jpg"...
-                
-                # Check case-insensitive match against files_in_dir
                 target = f"{pattern}{ext}"
-                
                 for f in files_in_dir:
                     if f.lower() == target.lower():
-                        # Found match
                         full_path = os.path.join(track_dir, f)
                         mtime = os.path.getmtime(full_path)
                         return ("file", full_path, mtime)
-                        
+
         return None
 
     def _process_image(self, path: str, source_type: str) -> Optional[bytes]:
