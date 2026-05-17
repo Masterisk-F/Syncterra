@@ -23,7 +23,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import Cookies from 'js-cookie';
 import { getValidatedCookie, VALID_SORT_BY, VALID_SORT_ORDER, VALID_TRACK_SORT_FIELDS } from '../../utils/cookieUtils';
 import { notifications } from '@mantine/notifications';
-import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending, IconLayoutGrid, IconList } from '@tabler/icons-react';
+import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending, IconLayoutGrid, IconList, IconChevronDown } from '@tabler/icons-react';
 import { getTracks, batchUpdateTracks, getAlbumArtUrl, initAlbumArtBaseUrl } from '../../api';
 import type { Track } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
@@ -459,35 +459,51 @@ export default function AudioListPage() {
               {isConnected ? 'WebSocket接続中' : 'オフライン'}
             </Badge>
 
-            <Menu shadow="md" width={200}>
-              <Menu.Target>
-                <Button
-                  leftSection={<IconRefresh size={20} />}
-                  loading={isScanning}
-                  disabled={isSyncing}
-                  variant="default"
-                  size="sm"
-                >
-                  スキャン
-                </Button>
-              </Menu.Target>
+            <Button.Group>
+              <Button
+                leftSection={<IconRefresh size={20} />}
+                onClick={onScanClick}
+                loading={isScanning}
+                disabled={isSyncing}
+                variant="default"
+                size="sm"
+                style={{ borderRight: 0 }}
+              >
+                スキャン
+              </Button>
+              <Menu shadow="md" width={200} position="bottom-end">
+                <Menu.Target>
+                  <ActionIcon
+                    variant="default"
+                    size={36}
+                    disabled={isSyncing || isScanning}
+                    style={{
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                      height: 36,
+                    }}
+                  >
+                    <IconChevronDown size={16} />
+                  </ActionIcon>
+                </Menu.Target>
 
-              <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconRefresh size={14} />}
-                  onClick={onScanClick}
-                >
-                  通常スキャン
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconRefresh size={14} />}
-                  onClick={onForceScanClick}
-                  color="red"
-                >
-                  強制再スキャン
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconRefresh size={14} />}
+                    onClick={onScanClick}
+                  >
+                    通常スキャン
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconRefresh size={14} />}
+                    onClick={onForceScanClick}
+                    color="red"
+                  >
+                    強制再スキャン
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </Button.Group>
 
             <Button
               leftSection={<IconDeviceFloppy size={20} />}
