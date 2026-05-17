@@ -231,11 +231,14 @@ class AlbumArtScanner:
         
         # Patterns to search
         # album_name を先頭に追加した検索パターンリストを作成
-        search_patterns = [album_name] + self.ALBUM_ART_FILENAMES
+        search_patterns = [album_name]
         # ファイルシステムの使用不可文字を除去したバリアントも追加
         safe_album_name = re.sub(r'[\\/:*?"<>|]', '', album_name)
         if safe_album_name and safe_album_name != album_name:
             search_patterns.append(safe_album_name)
+
+        # 最後に folder, cover 等の標準ファイル名を追加
+        search_patterns.extend(self.ALBUM_ART_FILENAMES)
         
         try:
             files_in_dir = os.listdir(track_dir)

@@ -245,10 +245,11 @@ async def test_find_source_album_name_with_special_chars():
         mock_exists.return_value = True
         mock_mtime.return_value = 1234.5
 
-        # フォルダ内には特殊文字除去済みのファイルがある
-        mock_listdir.return_value = [safe_filename]
+        # フォルダ内には特殊文字除去済みのファイルと標準ファイルの両方がある
+        # 優先順位（safe_album_name > 標準ファイル名）を検証
+        mock_listdir.return_value = [safe_filename, "folder.jpg"]
 
         result = scanner._find_source(track_path, album_name)
 
-        # 検証: file タイプとして検出されること
+        # 検証: 標準ファイルよりも特殊文字除去済みが優先して選択されること
         assert result == ("file", f"/music/{safe_filename}", 1234.5)
