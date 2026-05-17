@@ -230,36 +230,36 @@ class AlbumArtScanner:
         # Just assume simple string match for now.
         
         # Patterns to search
-        # album_name を先頭に追加した検索パターンリストを作成
-        search_patterns = [album_name]
-        # ファイルシステムの使用不可文字を除去したバリアントも追加
-        safe_album_name = re.sub(r'[\\/:*?"<>|]', '', album_name)
-        if safe_album_name and safe_album_name != album_name:
-            search_patterns.append(safe_album_name)
+        placeholder = "___SPECIAL___"
+        temp_name = re.sub(r'[\\/:*?"<>|]', placeholder, album_name)
+        escaped_name = re.escape(temp_name)
+        regex_pattern = escaped_name.replace(placeholder, '.*')
+        compiled_pattern = re.compile(f"^{regex_pattern}$", re.IGNORECASE)
 
-        # 最後に folder, cover 等の標準ファイル名を追加
-        search_patterns.extend(self.ALBUM_ART_FILENAMES)
-        
         try:
             files_in_dir = os.listdir(track_dir)
         except OSError:
             return None
-            
-        for pattern in search_patterns:
+
+        # Priority 1: Match album name via regex (ignoring case)
+        for f in files_in_dir:
+            base_name, ext = os.path.splitext(f)
+            if ext.lower() in self.IMAGE_EXTENSIONS:
+                if compiled_pattern.match(base_name):
+                    full_path = os.path.join(track_dir, f)
+                    mtime = os.path.getmtime(full_path)
+                    return ("file", full_path, mtime)
+
+        # Priority 2: Standard filenames (folder, cover, etc.)
+        for pattern in self.ALBUM_ART_FILENAMES:
             for ext in self.IMAGE_EXTENSIONS:
-                # Try exact case first? Spec says "拡張子は大文字も探す".
-                # But also filenames? "ALBUM.jpg", "ALBUM.png", "albumart.jpg"...
-                
-                # Check case-insensitive match against files_in_dir
                 target = f"{pattern}{ext}"
-                
                 for f in files_in_dir:
                     if f.lower() == target.lower():
-                        # Found match
                         full_path = os.path.join(track_dir, f)
                         mtime = os.path.getmtime(full_path)
                         return ("file", full_path, mtime)
-                        
+
         return None
 
     def _process_image(self, path: str, source_type: str) -> Optional[bytes]:

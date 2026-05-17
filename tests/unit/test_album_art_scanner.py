@@ -228,8 +228,8 @@ async def test_find_source_album_name_with_special_chars():
     scanner = AlbumArtScanner()
     track_path = "/music/test.mp3"
     album_name = "B-Side IDOL (Goddess of Victory: NIKKE Original Soundtrack)"
-    # 特殊文字を除去したファイル名
-    safe_filename = "B-Side IDOL (Goddess of Victory NIKKE Original Soundtrack).jpg"
+    # 特殊文字を別の文字（アンダースコアなど）に置換したファイル名
+    safe_filename = "B-Side IDOL (Goddess of Victory_ NIKKE Original Soundtrack).jpg"
 
     with patch("mutagen.File") as mock_mutagen_file, \
          patch("os.path.exists") as mock_exists, \
