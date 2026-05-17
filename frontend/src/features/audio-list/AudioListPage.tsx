@@ -475,15 +475,17 @@ export default function AudioListPage() {
                 <Menu.Target>
                   <ActionIcon
                     variant="default"
-                    size={36}
+                    size={30}
                     disabled={isSyncing || isScanning}
                     style={{
                       borderTopLeftRadius: 0,
                       borderBottomLeftRadius: 0,
                       height: 36,
+                      width: 24,
+                      minWidth: 24,
                     }}
                   >
-                    <IconChevronDown size={16} />
+                    <IconChevronDown size={14} />
                   </ActionIcon>
                 </Menu.Target>
 
