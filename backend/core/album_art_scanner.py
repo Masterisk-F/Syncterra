@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ..db.albumart_database import AsyncSessionLocal as ArtSessionLocal
-的高 ..db.albumart_models import AlbumArt
+from ..db.albumart_models import AlbumArt
 from ..db.database import AsyncSessionLocal as MainSessionLocal
 from ..db.models import Track
 
