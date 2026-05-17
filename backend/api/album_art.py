@@ -8,7 +8,7 @@ from ..db.albumart_models import AlbumArt
 
 router = APIRouter(prefix="/api/album-arts", tags=["album-arts"])
 
-@router.get("/{album_name}")
+@router.get("/{album_name:path}")
 async def get_album_art(
     album_name: str,
     db: AsyncSession = Depends(get_albumart_db)
