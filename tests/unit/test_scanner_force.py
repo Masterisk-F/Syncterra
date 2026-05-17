@@ -29,7 +29,7 @@ async def test_run_scan_force_true():
         file_path=file_path,
         relative_path=rel_path,
         last_modified=mtime_dt,
-        missing=False
+        missing=False,
     )
 
     # 各種モック
@@ -42,10 +42,16 @@ async def test_run_scan_force_true():
     # 1. ファイルシステムスキャンのモック
     files_to_process = [(file_path, rel_path, mtime)]
 
-    with patch("backend.core.scanner.AsyncSessionLocal", return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_db))), \
-         patch("backend.core.scanner.run_in_threadpool") as mock_run_in_threadpool, \
-         patch("backend.core.scanner.AlbumArtScanner", create=True) as mock_art_scanner_cls:
-
+    with (
+        patch(
+            "backend.core.scanner.AsyncSessionLocal",
+            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_db)),
+        ),
+        patch("backend.core.scanner.run_in_threadpool") as mock_run_in_threadpool,
+        patch(
+            "backend.core.scanner.AlbumArtScanner", create=True
+        ) as mock_art_scanner_cls,
+    ):
         # ScannerService.load_settings をスキップ
         scanner.load_settings = AsyncMock()
         scanner.settings = {"scan_paths": '["/music"]'}
@@ -65,9 +71,14 @@ async def test_run_scan_force_true():
 
         # 検証: _extract_metadata が呼ばれたか
         # 呼ばれた回数を確認（既存のロジックでは mtime が一致すると呼ばれない）
-        extract_calls = [call for call in mock_run_in_threadpool.call_args_list if call[0][0] == scanner._extract_metadata]
+        extract_calls = [
+            call
+            for call in mock_run_in_threadpool.call_args_list
+            if call[0][0] == scanner._extract_metadata
+        ]
         assert len(extract_calls) == 1
         assert extract_calls[0][0][1] == file_path
+
 
 @pytest.mark.asyncio
 async def test_run_scan_force_false():
@@ -91,7 +102,7 @@ async def test_run_scan_force_false():
         file_path=file_path,
         relative_path=rel_path,
         last_modified=mtime_dt,
-        missing=False
+        missing=False,
     )
 
     # 各種モック
@@ -102,10 +113,16 @@ async def test_run_scan_force_false():
 
     files_to_process = [(file_path, rel_path, mtime)]
 
-    with patch("backend.core.scanner.AsyncSessionLocal", return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_db))), \
-         patch("backend.core.scanner.run_in_threadpool") as mock_run_in_threadpool, \
-         patch("backend.core.scanner.AlbumArtScanner", create=True) as mock_art_scanner_cls:
-
+    with (
+        patch(
+            "backend.core.scanner.AsyncSessionLocal",
+            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_db)),
+        ),
+        patch("backend.core.scanner.run_in_threadpool") as mock_run_in_threadpool,
+        patch(
+            "backend.core.scanner.AlbumArtScanner", create=True
+        ) as mock_art_scanner_cls,
+    ):
         scanner.load_settings = AsyncMock()
         scanner.settings = {"scan_paths": '["/music"]'}
 
@@ -120,5 +137,9 @@ async def test_run_scan_force_false():
         await scanner.run_scan(force=False)
 
         # 検証: _extract_metadata が呼ばれていないこと
-        extract_calls = [call for call in mock_run_in_threadpool.call_args_list if call[0][0] == scanner._extract_metadata]
+        extract_calls = [
+            call
+            for call in mock_run_in_threadpool.call_args_list
+            if call[0][0] == scanner._extract_metadata
+        ]
         assert len(extract_calls) == 0
