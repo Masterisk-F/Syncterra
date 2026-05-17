@@ -29,24 +29,24 @@ class AlbumArtScanner:
             "albumartsmall",
         ]
 
-    async def scan_all(self):
+    async def scan_all(self, force: bool = False):
         """
         Scans all albums in the main DB and updates album art in the art DB.
         """
-        logger.info("Album Art Scan started")
-        
+        logger.info(f"Album Art Scan started (force={force})")
+
         # 1. Get all albums and their tracks from main DB
         # To avoid huge query, we can query distinct albums or iterate.
-        # Collecting all tracks might be heavy for huge libraries, 
+        # Collecting all tracks might be heavy for huge libraries,
         # but for simplicity we fetch meaningful tracks to determine album folders.
-        
-        # We need to group tracks by album. 
-        # Strategy: Select distinct album, album_artist from tracks? 
+
+        # We need to group tracks by album.
+        # Strategy: Select distinct album, album_artist from tracks?
         # Identifying "Album" identity is tricky if names collide.
-        
-        # Let's fetch all tracks and group in memory. 
+
+        # Let's fetch all tracks and group in memory.
         # If library is massive (100k+), this might need optimization.
-        
+
         async with MainSessionLocal() as session:
             # Fetch minimal data needed
             result = await session.execute(
@@ -56,40 +56,41 @@ class AlbumArtScanner:
             )
             # We also need file_path to find folder
             tracks = result.all()
-            
+
         # Group by album name (normalized?)
-        # Current app logic groups by "Album Name" string. 
+        # Current app logic groups by "Album Name" string.
         # Collision risk: Two albums named "Greatest Hits" by different artists.
-        # Frontend logic: groups by album name. 
+        # Frontend logic: groups by album name.
         # WE SHOULD FOLLOW FRONTEND LOGIC for consistency.
-        # But frontend logic (`AudioListPage.tsx`) groups by `albumName`. 
-        # And if collision occurs, they are merged. 
-        
+        # But frontend logic (`AudioListPage.tsx`) groups by `albumName`.
+        # And if collision occurs, they are merged.
+
         albums_map = {}
         for t in tracks:
             album_name = t.album
             if not album_name:
                 continue
-                
+
             norm_name = album_name.lower().strip()
             if norm_name not in albums_map:
-                albums_map[norm_name] = {
-                    "display_name": album_name,
-                    "tracks": []
-                }
+                albums_map[norm_name] = {"display_name": album_name, "tracks": []}
             albums_map[norm_name]["tracks"].append(t)
-            
+
         logger.info(f"Found {len(albums_map)} albums to process")
-            
+
         async with ArtSessionLocal() as art_session:
             # Verify/Update each album
             for norm_name, data in albums_map.items():
                 await self._process_album(
-                    art_session, norm_name, data["display_name"], data["tracks"]
+                    art_session,
+                    norm_name,
+                    data["display_name"],
+                    data["tracks"],
+                    force=force,
                 )
 
             await art_session.commit()
-            
+
         logger.info("Album Art Scan finished")
 
     async def _process_album(
@@ -98,14 +99,15 @@ class AlbumArtScanner:
         album_norm: str,
         album_display: str,
         tracks: list,
+        force: bool = False,
     ):
         # 1. Determine best source
         # Sort tracks to find "lowest track number" or "alphabetical"
         # track_num is string "1/12", "1", "01" etc.
-        
+
         def track_sort_key(t):
             # Parse track num
-            num = 10000 # default high
+            num = 10000  # default high
             if t.track_num:
                 try:
                     # Handle "1/10"
@@ -114,7 +116,7 @@ class AlbumArtScanner:
                 except ValueError:
                     pass
             return (num, t.file_path)
-            
+
         sorted_tracks = sorted(tracks, key=track_sort_key)
         if not sorted_tracks:
             return
@@ -123,31 +125,30 @@ class AlbumArtScanner:
         # Spec says:
         # 1. Metadata of representative track
         # 2. Local file (ALBUM.jpg, etc.)
-        
+
         # Re-reading spec: "上の方から順に探し、なければ下へ探す"
         # 1. Metadata
         # 2. Files
-        
         source = await run_in_threadpool(
             self._find_source, sorted_tracks[0].file_path, album_display
         )
-        
         if not source:
             # No art found
             return
 
         source_type, source_path, source_mtime = source
-        
+
         # Check DB
         stmt = select(AlbumArt).where(AlbumArt.album_normalized == album_norm)
         result = await session.execute(stmt)
         existing = result.scalars().first()
-        
+
         if existing:
             # Check if update needed
             # Valid source replacement? Or same source updated?
             if (
-                existing.source_path == source_path
+                not force
+                and existing.source_path == source_path
                 and existing.source_mtime == source_mtime
             ):
                 # No change
@@ -191,6 +192,7 @@ class AlbumArtScanner:
         # 1. Check Metadata
         try:
             from mutagen import File
+
             f = File(track_path)
             if f:
                 # Check for embedded art
@@ -208,32 +210,32 @@ class AlbumArtScanner:
                 # FLAC
                 if hasattr(f, "pictures") and f.pictures:
                     has_art = True
-                    
+
                 if has_art:
                     mtime = os.path.getmtime(track_path)
                     return ("meta", track_path, mtime)
         except Exception:
             pass
-            
+
         # 2. Check File System
         # album_name.jpg/png ...
         # albumart ...
-        
+
         track_dir = os.path.dirname(track_path)
 
         # Priority 1: ALBUM_NAME.(jpg|png)
         # Try exact album name, case insensitive?
         # Spec: "楽曲ファイルのアルバム名をALBUMとしたとき、"
         # "その楽曲ファイルと同じフォルダの”ALBUM.jpg”..."
-        
+
         # Clean album name for filename?
         # Just assume simple string match for now.
-        
+
         # Patterns to search
         placeholder = "___SPECIAL___"
         temp_name = re.sub(r'[\\/:*?"<>|]', placeholder, album_name)
         escaped_name = re.escape(temp_name)
-        regex_pattern = escaped_name.replace(placeholder, '.*')
+        regex_pattern = escaped_name.replace(placeholder, ".*")
         compiled_pattern = re.compile(f"^{regex_pattern}$", re.IGNORECASE)
 
         try:
@@ -267,22 +269,34 @@ class AlbumArtScanner:
         Reads image from file or metadata, resizes it, returns bytes.
         """
         img_data = None
-        
+
         try:
             if source_type == "file":
                 with open(path, "rb") as f:
                     img_data = f.read()
             elif source_type == "meta":
                 from mutagen import File
+
                 f = File(path)
                 if f:
                     # Extract data
                     # MP3 ID3
                     if hasattr(f, "tags"):
                         # MP3
-                        apic_tags = [f.tags[k] for k in f.tags.keys() if isinstance(k, str) and k.startswith("APIC")]
+                        apic_tags = [
+                            f.tags[k]
+                            for k in f.tags.keys()
+                            if isinstance(k, str) and k.startswith("APIC")
+                        ]
                         if apic_tags:
-                            front_cover = next((tag for tag in apic_tags if getattr(tag, "type", -1) == 3), None)
+                            front_cover = next(
+                                (
+                                    tag
+                                    for tag in apic_tags
+                                    if getattr(tag, "type", -1) == 3
+                                ),
+                                None,
+                            )
                             if front_cover:
                                 img_data = front_cover.data
                             else:
@@ -292,27 +306,27 @@ class AlbumArtScanner:
                             # MP4 covr is list of data
                             if len(f.tags["covr"]) > 0:
                                 img_data = f.tags["covr"][0]
-                                
+
                     # FLAC
                     if not img_data and hasattr(f, "pictures") and f.pictures:
                         img_data = f.pictures[0].data
-            
+
             if not img_data:
                 return None
-                
+
             # Resize using Pillow
             with Image.open(io.BytesIO(img_data)) as img:
                 if img.mode != "RGB":
                     img = img.convert("RGB")
-                    
+
                 w, h = img.size
                 if w > 500 or h > 500:
                     img.thumbnail((500, 500), Image.Resampling.LANCZOS)
-                    
+
                 out_io = io.BytesIO()
                 img.save(out_io, format="JPEG", quality=85)
                 return out_io.getvalue()
-                
+
         except Exception as e:
             logger.error(f"Failed to process image {path} ({source_type}): {e}")
             return None

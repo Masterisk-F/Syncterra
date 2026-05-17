@@ -17,12 +17,13 @@ import {
   AspectRatio,
   ActionIcon,
   Tooltip,
+  Menu,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import Cookies from 'js-cookie';
 import { getValidatedCookie, VALID_SORT_BY, VALID_SORT_ORDER, VALID_TRACK_SORT_FIELDS } from '../../utils/cookieUtils';
 import { notifications } from '@mantine/notifications';
-import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending, IconLayoutGrid, IconList } from '@tabler/icons-react';
+import { IconRefresh, IconDeviceFloppy, IconSortAscending, IconSortDescending, IconLayoutGrid, IconList, IconChevronDown } from '@tabler/icons-react';
 import { getTracks, batchUpdateTracks, getAlbumArtUrl, initAlbumArtBaseUrl } from '../../api';
 import type { Track } from '../../api/types';
 import { useSync } from '../sync/SyncContext';
@@ -354,6 +355,16 @@ export default function AudioListPage() {
     await handleScan();
   };
 
+  const onForceScanClick = async () => {
+    if (
+      window.confirm(
+        '全ファイルのメタデータとアルバムアートを強制的に再読込します。\n処理時間が長くなる可能性があります。よろしいですか？'
+      )
+    ) {
+      await handleScan(true);
+    }
+  };
+
   // Save Sync Settings - syncフラグをバックエンドに保存
   const handleSaveSync = async () => {
     try {
@@ -460,16 +471,53 @@ export default function AudioListPage() {
               {isConnected ? 'WebSocket接続中' : 'オフライン'}
             </Badge>
 
-            <Button
-              leftSection={<IconRefresh size={20} />}
-              onClick={onScanClick}
-              loading={isScanning}
-              disabled={isSyncing}
-              variant="default"
-              size="sm"
-            >
-              スキャン
-            </Button>
+            <Button.Group>
+              <Button
+                leftSection={<IconRefresh size={20} />}
+                onClick={onScanClick}
+                loading={isScanning}
+                disabled={isSyncing}
+                variant="default"
+                size="sm"
+                style={{ borderRight: 0 }}
+              >
+                スキャン
+              </Button>
+              <Menu shadow="md" width={200} position="bottom-end">
+                <Menu.Target>
+                  <ActionIcon
+                    variant="default"
+                    size={30}
+                    disabled={isSyncing || isScanning}
+                    style={{
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                      height: 36,
+                      width: 24,
+                      minWidth: 24,
+                    }}
+                  >
+                    <IconChevronDown size={14} />
+                  </ActionIcon>
+                </Menu.Target>
+
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconRefresh size={14} />}
+                    onClick={onScanClick}
+                  >
+                    通常スキャン
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconRefresh size={14} />}
+                    onClick={onForceScanClick}
+                    color="red"
+                  >
+                    強制再スキャン
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </Button.Group>
 
             <Button
               leftSection={<IconDeviceFloppy size={20} />}

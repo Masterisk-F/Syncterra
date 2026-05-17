@@ -28,6 +28,23 @@ async def test_scan(client):
 
 
 @pytest.mark.asyncio
+async def test_scan_with_force(client):
+    """
+    [System API] 強制スキャン開始トリガー
+
+    条件:
+    1. POST /api/scan?force=true を実行
+
+    期待値:
+    1. ステータスコード 200 が返ること
+    2. レスポンスに status: accepted が含まれること
+    """
+    response = client.post("/api/scan?force=true")
+    assert response.status_code == 200
+    assert response.json()["status"] == "accepted"
+
+
+@pytest.mark.asyncio
 async def test_sync(client):
     """
     [System API] 同期開始トリガー

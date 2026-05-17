@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Query
 
 from ..core.scanner import ScannerService
 from ..core.syncer import SyncService
@@ -19,11 +19,14 @@ def log_to_ws(message: str):
     # For simplicity/safety in this context (threadpool), let's just log to console
     # and rely on the fact that we can't easily await here without loop reference.
     # BUT requirement says "WebSocketでの進捗通知".
-    # Solution: The service runs in a thread, but checking manager.broadcast is a coroutine.
+    # Solution: The service runs in a thread, but checking manager.broadcast
+    # is a coroutine.
     # We can pass an async wrapper if we run service in standard async way?
     # ScannerService run_scan is async. SyncService run_sync is async (wraps thread).
-    # So we can pass an async callback for Scanner, but SyncService internal methods are sync.
-    # Let's fix SyncService to accept a sync callback that maybe pushes to a queue or uses run_coroutine_threadsafe.
+    # So we can pass an async callback for Scanner, but SyncService internal methods
+    # are sync.
+    # Let's fix SyncService to accept a sync callback that maybe pushes to a queue
+    # or uses run_coroutine_threadsafe.
 
     # Actually, let's just assume we log to logger for now, and try to hook up WS.
     # In FastAPI, we can grab the loop from the request?
@@ -34,8 +37,8 @@ def log_to_ws(message: str):
         pass  # No loop?
 
 
-async def scan_task():
-    logger.info("Scan task started")
+async def scan_task(force: bool = False):
+    logger.info(f"Scan task started (force={force})")
     scanner = ScannerService()
 
     import json
@@ -57,7 +60,7 @@ async def scan_task():
         asyncio.run_coroutine_threadsafe(manager.broadcast(data), loop)
 
     await scanner.run_scan(
-        progress_callback=progress_callback, log_callback=log_callback
+        progress_callback=progress_callback, log_callback=log_callback, force=force
     )
 
     # Final completion message handled by scanner's log_callback mostly,
@@ -84,8 +87,10 @@ async def sync_task():
 
 
 @router.post("/scan")
-async def scan_files(background_tasks: BackgroundTasks):
-    background_tasks.add_task(scan_task)
+async def scan_files(
+    background_tasks: BackgroundTasks, force: bool = Query(False)
+):
+    background_tasks.add_task(scan_task, force=force)
     return {"status": "accepted", "message": "Scan started"}
 
 
