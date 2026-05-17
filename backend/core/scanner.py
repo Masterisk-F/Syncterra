@@ -148,7 +148,7 @@ class ScannerService:
                             # ファイル実体に変更がない場合は、重いメタデータ抽出はスキップして
                             # DB上のパスのみを修正する。
                             track_in_db.relative_path = rel_path
-                            if not needs_meta_update:
+                            if not (needs_meta_update or force):
                                 updated_count += 1
                                 msg = f"File updated (path): {file_path} -> {rel_path}"
                                 logger.info(msg)
