@@ -72,8 +72,8 @@ async def test_syncer_flow_adb(temp_db, create_settings, patch_db_session):
     ):
         # ADB ls (初期チェック) のモック
         mock_run.return_value.returncode = 0
-        mock_run.return_value.stdout = ""  # 既存ファイルなし
-        mock_run.return_value.stderr = ""
+        mock_run.return_value.stdout = b""  # 既存ファイルなし
+        mock_run.return_value.stderr = b""
 
         # 実行
         await SyncService.run_sync()
