@@ -37,7 +37,7 @@ class Track(Base):
     last_modified = Column(DateTime)
 
     # Relationships
-    playlist_tracks = relationship("PlaylistTrack", back_populates="track")
+    playlist_tracks = relationship("PlaylistTrack", back_populates="track", passive_deletes=True)
 
 
 class Playlist(Base):
@@ -48,7 +48,7 @@ class Playlist(Base):
 
     # Relationships
     tracks = relationship(
-        "PlaylistTrack", back_populates="playlist", cascade="all, delete-orphan"
+        "PlaylistTrack", back_populates="playlist", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
@@ -56,8 +56,8 @@ class PlaylistTrack(Base):
     __tablename__ = "playlist_tracks"
 
     id = Column(Integer, primary_key=True, index=True)
-    playlist_id = Column(Integer, ForeignKey("playlists.id"), nullable=False)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
+    playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="CASCADE"), nullable=False)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False)
     order = Column(Integer, nullable=False)  # Order of the track in the playlist
 
     # Relationships
