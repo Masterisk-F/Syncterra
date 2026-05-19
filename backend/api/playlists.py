@@ -89,6 +89,8 @@ async def get_playlists(db: AsyncSession = Depends(get_db)):
         # order順にソート
         sorted_tracks = sorted(playlist.tracks, key=lambda x: x.order)
         for pt in sorted_tracks:
+            if pt.track is None:
+                continue
             tracks_data.append(
                 TrackInPlaylist(
                     id=pt.id,
@@ -156,6 +158,8 @@ async def get_playlist(playlist_id: int, db: AsyncSession = Depends(get_db)):
     tracks_data = []
     sorted_tracks = sorted(playlist.tracks, key=lambda x: x.order)
     for pt in sorted_tracks:
+        if pt.track is None:
+            continue
         tracks_data.append(
             TrackInPlaylist(
                 id=pt.id,

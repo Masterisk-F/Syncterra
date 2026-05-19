@@ -62,6 +62,35 @@ class TestGetPlaylists:
         assert result[0].name == "Test Playlist"
         assert result[0].tracks == []
 
+    @pytest.mark.asyncio
+    async def test_get_playlists_with_missing_track(self):
+        """トラックが削除された(None)プレイリストを含む場合、500エラーにならずに除外されること"""
+        mock_db = AsyncMock()
+
+        mock_missing_track = MagicMock()
+        mock_missing_track.id = 1
+        mock_missing_track.track_id = 10
+        mock_missing_track.order = 0
+        mock_missing_track.track = None  # 幽霊データ(DBから直接削除された状態)
+
+        mock_playlist = MagicMock()
+        mock_playlist.id = 1
+        mock_playlist.name = "Test Playlist"
+        mock_playlist.tracks = [mock_missing_track]
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.unique.return_value.all.return_value = [
+            mock_playlist
+        ]
+        mock_db.execute.return_value = mock_result
+
+        result = await get_playlists(db=mock_db)
+
+        assert len(result) == 1
+        assert result[0].name == "Test Playlist"
+        assert len(result[0].tracks) == 0  # Missing track is skipped
+
+
 
 class TestCreatePlaylist:
     """プレイリスト作成のテスト"""
@@ -150,6 +179,33 @@ class TestGetPlaylist:
         assert result.id == 1
         assert result.name == "Test Playlist"
         assert len(result.tracks) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_playlist_with_missing_track(self):
+        """トラックが削除された(None)プレイリスト詳細取得時、500エラーにならずに除外されること"""
+        mock_db = AsyncMock()
+
+        mock_missing_track = MagicMock()
+        mock_missing_track.id = 1
+        mock_missing_track.track_id = 10
+        mock_missing_track.order = 0
+        mock_missing_track.track = None  # 幽霊データ
+
+        mock_playlist = MagicMock()
+        mock_playlist.id = 1
+        mock_playlist.name = "Test Playlist"
+        mock_playlist.tracks = [mock_missing_track]
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = mock_playlist
+        mock_db.execute.return_value = mock_result
+
+        result = await get_playlist(playlist_id=1, db=mock_db)
+
+        assert result.id == 1
+        assert result.name == "Test Playlist"
+        assert len(result.tracks) == 0  # Missing track is skipped
+
 
     @pytest.mark.asyncio
     async def test_get_playlist_not_found(self):
